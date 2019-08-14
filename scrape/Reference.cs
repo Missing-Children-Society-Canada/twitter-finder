@@ -1,6 +1,4 @@
 using System;
-using System.Net.Http;
-using System.Threading.Tasks;
 using HtmlAgilityPack;
 using System.Linq;
 using System.Net;
@@ -23,27 +21,16 @@ namespace MCSC.Parsing
         {
             try
             {
-                var web = new HtmlWeb()
-                {
-                    UseCookies = true,
-                    CaptureRedirect = true
-                };
-                
-                var doc = web.Load(this.uri);
-                if ((web.StatusCode != HttpStatusCode.OK))
-                {
-                    // TO DO: Error Logging something went wrong
-                    // BC RCMP Pages have a redirect that blocks us from parsing so just return an empty page
-                    return string.Empty;
-                }
-                else 
-                {
-                    // The body is where the majority of the content is so use that
-                    return doc.DocumentNode
+                var web = new MyWebClient();
+                var data = web.DownloadString(this.uri);
+                var doc = new HtmlDocument();
+                doc.LoadHtml(data);
+
+                // The body is where the majority of the content is so use that
+                return doc.DocumentNode
                     .SelectNodes("//body")
                     .First()
                     .InnerHtml;
-                }
             }
             catch (Exception e)
             {
@@ -61,6 +48,16 @@ namespace MCSC.Parsing
                 return new Incident();
             }
             return this.parser.Parse(body);
+        }
+    }
+
+    public class MyWebClient : WebClient
+    {
+        protected override WebRequest GetWebRequest(Uri address)
+        {
+            HttpWebRequest request = base.GetWebRequest(address) as HttpWebRequest;
+            request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+            return request;
         }
     }
 }

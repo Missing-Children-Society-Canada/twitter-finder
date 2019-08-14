@@ -33,22 +33,8 @@ namespace MCSC
                     TweetUrl = tweet.TweetUrl,
                 };
 
-                if(!string.IsNullOrEmpty(tweet.SourceUrl))
+                if(!string.IsNullOrEmpty(luisInput.SourceUrl))
                 {
-                    using (var handler = new HttpClientHandler())
-                    {
-                        handler.AllowAutoRedirect = false;
-                        using (var client = new HttpClient(handler))
-                        {
-                            var response = await client.GetAsync(tweet.SourceUrl);
-                            var fullUrl = response.Headers.Location.ToString();
-                            if (!string.IsNullOrEmpty(fullUrl))
-                            { 
-                                luisInput.SourceUrl = fullUrl;
-                            
-                            }
-                        }
-                    }
                     // If Twitter is the source url then don't bother parsing
                     if (!luisInput.SourceUrl.Contains("https://twitter.com"))
                     {

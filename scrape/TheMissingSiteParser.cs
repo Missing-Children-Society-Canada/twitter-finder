@@ -27,7 +27,7 @@ namespace MCSC.Parsing
                 var document = new HtmlDocument();
                 document.LoadHtml(body);
                 
-                var infoNodes = document.DocumentNode.SelectNodes("//div[@class='pf-itempage-desc descexpf']/p");
+                var infoNodes = document.DocumentNode.SelectNodes("//div[@class='pf-itempage-desc descexpf']");
                 if (infoNodes != null)
                 {
                     foreach (HtmlNode node in infoNodes)
