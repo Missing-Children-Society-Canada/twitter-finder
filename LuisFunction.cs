@@ -1,11 +1,10 @@
 using System;
-using System.IO;
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using MCSC.Classes;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace MCSC
@@ -15,12 +14,14 @@ namespace MCSC
         [StorageAccount("BlobStorageConnectionString")]
         [return: Queue("luis")]
         [FunctionName("LuisFunction")]
-        public static async Task<string> Run([QueueTrigger("scrape")]string luisInputs, ILogger log)
+        public static async Task<string> Run([QueueTrigger("scrape")]string luisInputs, ILogger logger)
         {
+            logger.LogInformation($"Luis function invoked: {luisInputs}");
+
             var listofInputs = JsonConvert.DeserializeObject<List<LuisInput>>(luisInputs);
             IList<MissingChild> luisResults = new List<MissingChild>();
             
-            LUISHelper luis = new LUISHelper();
+            LuisHelper luis = new LuisHelper();
             foreach (var luisInput in listofInputs)
             {
                 string shortSummary = luisInput.ShortSummary;
@@ -30,8 +31,20 @@ namespace MCSC
                 {
                     shortSummary = shortSummary.Replace("&","");
                     // take only first 500 characters so LUIS can handle it 
-                    shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 499));
-                    await luis.GetLuisResult(shortSummary, missingChild);
+                    shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 498));
+
+                    var luisResult = await LuisHelper.GetLuisResult(shortSummary);
+                    if (luisResult != null)
+                    {
+                        var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.EntityFound));
+                        logger.LogInformation($"luis returned the following entities:{entityKeys}");
+
+                        MapLuisResultToMissingChild(missingChild, luisResult);
+                    }
+                    else
+                    {
+                        logger.LogWarning("luis did not return a result to process");
+                    }
                 }
 
                 luisResults.Add(missingChild);
@@ -40,7 +53,7 @@ namespace MCSC
             return JsonConvert.SerializeObject(luisResults);
         }
 
-        static MissingChild FillInformationForMissingChild(LuisInput luisInput)
+        private static MissingChild FillInformationForMissingChild(LuisInput luisInput)
         {
             return new MissingChild{
                     SourceUrl = luisInput.SourceUrl,
@@ -49,6 +62,46 @@ namespace MCSC
                     Summary = luisInput.Summary,
                     ShortSummary = luisInput.ShortSummary
             };
+        }
+
+        private static void MapLuisResultToMissingChild(MissingChild missingChild, LuisResult luisResult)
+        {
+            foreach (var entity in luisResult.Entities)
+            {
+                switch (entity.Type)
+                {
+                    case "Name":
+                        missingChild.Name = entity.EntityFound;
+                        break;
+                    case "City":
+                        missingChild.City = entity.EntityFound;
+                        break;
+                    case "Province":
+                        missingChild.Province = entity.EntityFound;
+                        break;
+                    case "Age":
+                        missingChild.Age = int.Parse(entity.EntityFound);
+                        break;
+                    case "Gender":
+                        missingChild.Gender = entity.EntityFound;
+                        break;
+                    case "Ethnicity":
+                        missingChild.Ethnicity = entity.EntityFound;
+                        break;
+                    case "MissingSince":
+                        missingChild.MissingSince = entity.EntityFound;
+                        break;
+                    case "Height":
+                        missingChild.Height = entity.EntityFound;
+                        break;
+                    case "Weight":
+                        missingChild.Weight = entity.EntityFound;
+                        break;
+                    case "Found":
+                        missingChild.Found = int.Parse(entity.EntityFound);
+                        break;
+                }
+            }
         }
     }
 }
