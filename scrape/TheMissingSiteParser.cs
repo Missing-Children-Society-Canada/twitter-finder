@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions; 
 using HtmlAgilityPack;
 using MCSC.Classes;
 
@@ -23,12 +21,13 @@ namespace MCSC.Parsing
         {
             string summary = "";
             string shortSummary = "";
-            try {
+            try
+            {
                 // Load the document
                 var document = new HtmlDocument();
                 document.LoadHtml(body);
                 
-                var infoNodes = document.DocumentNode.SelectNodes("//div[@class='pfdetailitem-subelement pf-onlyitem clearfix']");
+                var infoNodes = document.DocumentNode.SelectNodes("//div[@class='pf-itempage-desc descexpf']/p");
                 if (infoNodes != null)
                 {
                     foreach (HtmlNode node in infoNodes)
@@ -42,7 +41,7 @@ namespace MCSC.Parsing
                     // Pull only the inner HTML
                     foreach (HtmlNode n in infoNodes)
                     {
-                        shortSummary = shortSummary + n.InnerHtml;
+                        shortSummary = shortSummary + n.InnerText;
                     }
                     if (!String.IsNullOrEmpty(shortSummary))
                     {
@@ -57,7 +56,7 @@ namespace MCSC.Parsing
                 summary = body; 
             }
             // return the results
-            return new Incident()
+            return new Incident
             {
                 Summary = summary,
                 ShortSummary = shortSummary,
