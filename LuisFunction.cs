@@ -21,7 +21,6 @@ namespace MCSC
             var listofInputs = JsonConvert.DeserializeObject<List<LuisInput>>(luisInputs);
             IList<MissingChild> luisResults = new List<MissingChild>();
             
-            LuisHelper luis = new LuisHelper();
             foreach (var luisInput in listofInputs)
             {
                 string shortSummary = luisInput.ShortSummary;
@@ -39,7 +38,7 @@ namespace MCSC
                         var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.EntityFound));
                         logger.LogInformation($"luis returned the following entities:{entityKeys}");
 
-                        MapLuisResultToMissingChild(missingChild, luisResult);
+                        MapLuisResultToMissingChild(missingChild, luisResult, logger);
                     }
                     else
                     {
@@ -55,16 +54,17 @@ namespace MCSC
 
         private static MissingChild FillInformationForMissingChild(LuisInput luisInput)
         {
-            return new MissingChild{
-                    SourceUrl = luisInput.SourceUrl,
-                    TweetUrl = luisInput.TweetUrl,
-                    TwitterProfileUrl = luisInput.TwitterProfileUrl,
-                    Summary = luisInput.Summary,
-                    ShortSummary = luisInput.ShortSummary
+            return new MissingChild
+            {
+                SourceUrl = luisInput.SourceUrl,
+                TweetUrl = luisInput.TweetUrl,
+                TwitterProfileUrl = luisInput.TwitterProfileUrl,
+                Summary = luisInput.Summary,
+                ShortSummary = luisInput.ShortSummary
             };
         }
 
-        private static void MapLuisResultToMissingChild(MissingChild missingChild, LuisResult luisResult)
+        private static void MapLuisResultToMissingChild(MissingChild missingChild, LuisResult luisResult, ILogger logger)
         {
             foreach (var entity in luisResult.Entities)
             {
@@ -80,7 +80,14 @@ namespace MCSC
                         missingChild.Province = entity.EntityFound;
                         break;
                     case "Age":
-                        missingChild.Age = int.Parse(entity.EntityFound);
+                        if (int.TryParse(entity.EntityFound, out var age))
+                        {
+                            missingChild.Age = age;
+                        }
+                        else
+                        {
+                            logger.LogWarning($"Unable to parse {entity.EntityFound} as a valid {entity.Type} integer.");
+                        }
                         break;
                     case "Gender":
                         missingChild.Gender = entity.EntityFound;
@@ -89,7 +96,19 @@ namespace MCSC
                         missingChild.Ethnicity = entity.EntityFound;
                         break;
                     case "MissingSince":
-                        missingChild.MissingSince = entity.EntityFound;
+                        try
+                        {
+                            // attempt to normalize date in ISO format
+                            var span = new Chronic.Core.Parser().Parse(entity.EntityFound);
+                            if (span?.Start != null)
+                            {
+                                missingChild.MissingSince = span.Start.Value.ToString("s");
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            logger.LogWarning($"Unable to parse {entity.EntityFound} as a valid {entity.Type} datetime.");
+                        }
                         break;
                     case "Height":
                         missingChild.Height = entity.EntityFound;
@@ -98,7 +117,14 @@ namespace MCSC
                         missingChild.Weight = entity.EntityFound;
                         break;
                     case "Found":
-                        missingChild.Found = int.Parse(entity.EntityFound);
+                        if (int.TryParse(entity.EntityFound, out var found))
+                        {
+                            missingChild.Found = found;
+                        }
+                        else
+                        {
+                            logger.LogWarning($"Unable to parse {entity.EntityFound} as a valid {entity.Type} integer.");
+                        }
                         break;
                 }
             }
