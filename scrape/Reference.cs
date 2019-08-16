@@ -10,12 +10,12 @@ namespace MCSC.Parsing
 {
     public class Reference
     {
-        private readonly string uri;
+        private readonly string _uri;
         private readonly ILogger _logger;
 
         public Reference(string uri, ILogger logger)
         {
-            this.uri = uri;
+            _uri = uri;
             _logger = logger;
         }
 
@@ -24,7 +24,7 @@ namespace MCSC.Parsing
             try
             {
                 var web = new MyWebClient();
-                var data = web.DownloadString(this.uri);
+                var data = web.DownloadString(this._uri);
                 var doc = new HtmlDocument();
                 doc.LoadHtml(data);
 
@@ -53,7 +53,6 @@ namespace MCSC.Parsing
             string cutdownbody = "";
             try
             {
-
                 // Load the document
                 var document = new HtmlDocument();
                 document.LoadHtml(body);
@@ -73,13 +72,25 @@ namespace MCSC.Parsing
                 cutdownbody = body;
             }
 
-
-            var parser = ParserFactory.Instance.BuildParser(this.uri);
-            var incident = parser.Parse(cutdownbody);
+            Incident incident;
+            var parser = ParserFactory.Instance.BuildParser(this._uri);
+            if (parser == null)
+            {
+                _logger.LogWarning($"No specific parser defined for site @ {this._uri}, using fallback.");
+                incident = new Incident()
+                {
+                    // We don't want to set the short summary because then luis will parse it!
+                    // ShortSummary = body,
+                    Summary = body
+                };
+            }
+            else
+            {
+                incident = parser.Parse(cutdownbody);
+            }
 
             var shortSummary = "";
             var summary = "";
-
             if (!String.IsNullOrEmpty(incident.ShortSummary))
             {
                 // If the short summary is available then cut it down to be optimized for LUIS

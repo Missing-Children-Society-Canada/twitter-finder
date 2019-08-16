@@ -25,6 +25,7 @@ namespace MCSC.Parsing
         private ParserFactory()
         {
             _parsers = new Dictionary<string, IBodyParse>(7);
+
             IBodyParse p = new TheMissingParser();
             _parsers.Add(p.Uri, p);
             p = new RCMPParser();
@@ -45,6 +46,8 @@ namespace MCSC.Parsing
             _parsers.Add(p.Uri, p);
             p = new MissingPeopleParser();
             _parsers.Add(p.Uri, p);
+            p = new KingstonPoliceParser();
+            _parsers.Add(p.Uri, p);
         }
 
         public IBodyParse BuildParser(string url)
@@ -56,7 +59,7 @@ namespace MCSC.Parsing
                     return _parsers[uri];
                 }
             }
-            return new UnknownSiteParser();
+            return null;
         }
     }
 }

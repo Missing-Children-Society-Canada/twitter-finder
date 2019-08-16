@@ -39,6 +39,10 @@ namespace MCSC
                     luisInput.ShortSummary = incident.ShortSummary;
                     luisInput.Summary = incident.Summary;
                 }
+                else
+                {
+                    log.LogWarning("No source url was available for this input, skipping scrape.");
+                }
                 
                 scrapedTweets.Add(luisInput);
             }
