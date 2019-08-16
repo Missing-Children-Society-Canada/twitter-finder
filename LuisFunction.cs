@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using MCSC.Classes;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using Newtonsoft.Json;
 
 namespace MCSC
@@ -16,11 +18,13 @@ namespace MCSC
         [FunctionName("LuisFunction")]
         public static async Task<string> Run([QueueTrigger("scrape")]string luisInputs, ILogger logger)
         {
-            logger.LogInformation($"Luis function invoked: {luisInputs}");
-
             var listofInputs = JsonConvert.DeserializeObject<List<LuisInput>>(luisInputs);
+            logger.LogInformation($"Luis function {listofInputs.Count} items, invoked: {luisInputs}");
+
+            var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Utils.GetEnvVariable("LUISsubscriptionKey"));
+
             IList<MissingChild> luisResults = new List<MissingChild>();
-            
             foreach (var luisInput in listofInputs)
             {
                 string shortSummary = luisInput.ShortSummary;
@@ -32,24 +36,51 @@ namespace MCSC
                     // take only first 500 characters so LUIS can handle it 
                     shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 498));
 
-                    var luisResult = await LuisHelper.GetLuisResult(shortSummary);
+                    logger.LogInformation($"Sending LUIS query \"{shortSummary}\".");
+
+                    var luisResult = await GetLuisResult(httpClient, shortSummary, logger);
                     if (luisResult != null)
                     {
                         var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.EntityFound));
-                        logger.LogInformation($"luis returned the following entities:{entityKeys}");
+                        logger.LogInformation($"LUIS returned the following entities:{entityKeys}");
 
                         MapLuisResultToMissingChild(missingChild, luisResult, logger);
                     }
                     else
                     {
-                        logger.LogWarning("luis did not return a result to process");
+                        logger.LogWarning("LUIS did not return entities to process.");
                     }
+                }
+                else
+                {
+                    logger.LogInformation($"LUIS skipped tweet {luisInput.TweetUrl} due to missing short summary.");
                 }
 
                 luisResults.Add(missingChild);
             }
 
             return JsonConvert.SerializeObject(luisResults);
+        }
+
+        ///<summary>
+        /// Returns a json string containing the results obtained 
+        /// from the LUIS service defined in the env variables
+        ///</summary>
+        private static async Task<LuisResult> GetLuisResult(HttpClient httpClient, string shortSummary, ILogger logger)
+        {
+            string luisAppID = Utils.GetEnvVariable("LUISappID");
+            string luisEndpoint = Utils.GetEnvVariable("LUISendpoint");
+
+            string luisUri = $"{luisEndpoint}{luisAppID}?verbose=true&timezoneOffset=-360&q=\"{shortSummary}\"";
+            var response = await httpClient.GetAsync(luisUri);
+
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var contents = await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<LuisResult>(contents);
+            }
+            logger.LogError($"LUIS returned error status code {response.StatusCode}.");
+            return null;
         }
 
         private static MissingChild FillInformationForMissingChild(LuisInput luisInput)
@@ -117,14 +148,10 @@ namespace MCSC
                         missingChild.Weight = entity.EntityFound;
                         break;
                     case "Found":
-                        if (int.TryParse(entity.EntityFound, out var found))
-                        {
-                            missingChild.Found = found;
-                        }
-                        else
-                        {
-                            logger.LogWarning($"Unable to parse {entity.EntityFound} as a valid {entity.Type} integer.");
-                        }
+                        missingChild.Found = 1;
+                        break;
+                    default:
+                        logger.LogWarning($"No mapping defined for {entity.Type}.");
                         break;
                 }
             }
