@@ -23,7 +23,7 @@ namespace MCSC.Parsing
         {
             try
             {
-                var web = new MyWebClient();
+                var web = new AutoDecompressWebClient();
                 var data = web.DownloadString(this._uri);
                 var doc = new HtmlDocument();
                 doc.LoadHtml(data);
@@ -168,16 +168,6 @@ namespace MCSC.Parsing
             result = regex.Replace(result, " ");
 
             return result.Trim();
-        }
-    }
-
-    public class MyWebClient : WebClient
-    {
-        protected override WebRequest GetWebRequest(Uri address)
-        {
-            HttpWebRequest request = base.GetWebRequest(address) as HttpWebRequest;
-            request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-            return request;
         }
     }
 }

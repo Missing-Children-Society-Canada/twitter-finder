@@ -33,11 +33,21 @@ namespace MCSC
                 {
                     log.LogInformation($"Loading external reference into scraper '{luisInput.SourceUrl}'.");
 
-                    var reference = new Reference(luisInput.SourceUrl, log);
-                    var incident = reference.Load();
+                    //use smart reference first, if that fails fallback 
+                    var smartReference = new SmartReference(luisInput.SourceUrl, log);
+                    if (smartReference.Load(out var shortSummary, out var summary))
+                    {
+                        luisInput.ShortSummary = shortSummary;
+                        luisInput.Summary = summary;
+                    }
+                    else
+                    {
+                        var reference = new Reference(luisInput.SourceUrl, log);
+                        var incident = reference.Load();
 
-                    luisInput.ShortSummary = incident.ShortSummary;
-                    luisInput.Summary = incident.Summary;
+                        luisInput.ShortSummary = incident.ShortSummary;
+                        luisInput.Summary = incident.Summary;
+                    }
                 }
                 else
                 {

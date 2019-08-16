@@ -8,6 +8,7 @@
     <PackageReference Include="Chronic.Core" Version="0.3.2" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.29" />
     <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.Storage" Version="3.0.7" />
+    <PackageReference Include="SmartReader" Version="0.6.2" />
     <PackageReference Include="System.Linq" Version="4.3.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.8.9" />
   </ItemGroup>
