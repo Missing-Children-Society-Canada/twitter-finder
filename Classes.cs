@@ -73,6 +73,8 @@ namespace MCSC.Classes
         public string EntityFound { get; set; }
         [JsonProperty("type")]
         public string Type { get; set; }
+        [JsonProperty("score")]
+        public double? Score { get; set; }
     }
 
     public class LuisResult

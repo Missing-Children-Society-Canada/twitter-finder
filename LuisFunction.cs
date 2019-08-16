@@ -44,7 +44,9 @@ namespace MCSC
                         var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.EntityFound));
                         logger.LogInformation($"LUIS returned the following entities:{entityKeys}");
 
-                        MapLuisResultToMissingChild(missingChild, luisResult, logger);
+                        var bestEntities = SelectBestEntities(luisResult.Entities);
+
+                        MapLuisResultToMissingChild(missingChild, bestEntities, logger);
                     }
                     else
                     {
@@ -60,6 +62,12 @@ namespace MCSC
             }
 
             return JsonConvert.SerializeObject(luisResults);
+        }
+
+        private static IEnumerable<Entity> SelectBestEntities(IEnumerable<Entity> inputList)
+        {
+            return inputList.GroupBy(item => item.Type)
+                .Select(grp => grp.Aggregate((max, cur) => (max == null || cur.Score > max.Score) ? cur : max));
         }
 
         ///<summary>
@@ -95,9 +103,9 @@ namespace MCSC
             };
         }
 
-        private static void MapLuisResultToMissingChild(MissingChild missingChild, LuisResult luisResult, ILogger logger)
+        private static void MapLuisResultToMissingChild(MissingChild missingChild, IEnumerable<Entity> entities, ILogger logger)
         {
-            foreach (var entity in luisResult.Entities)
+            foreach (var entity in entities)
             {
                 switch (entity.Type)
                 {
