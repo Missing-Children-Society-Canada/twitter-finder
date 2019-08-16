@@ -42,6 +42,7 @@ namespace MCSC
                     }
                     else
                     {
+                        log.LogWarning($"Smart reference failed to load content from '{luisInput.SourceUrl}'.");
                         var reference = new Reference(luisInput.SourceUrl, log);
                         var incident = reference.Load();
 
@@ -51,7 +52,11 @@ namespace MCSC
                 }
                 else
                 {
-                    log.LogWarning("No source url was available for this input, skipping scrape.");
+                    log.LogInformation("No source url was available for this input, skipping scrape.");
+                    luisInput.Summary = StringSanitizer.RemoveHashtags(tweet.TweetText);
+
+                    luisInput.ShortSummary = StringSanitizer.RemoveFillerWords(
+                        StringSanitizer.RemoveHashtags(tweet.TweetText));
                 }
                 
                 scrapedTweets.Add(luisInput);

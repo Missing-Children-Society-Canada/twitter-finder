@@ -2,7 +2,6 @@ using System;
 using HtmlAgilityPack;
 using System.Linq;
 using System.Net;
-using System.Text.RegularExpressions;
 using MCSC.Classes;
 using Microsoft.Extensions.Logging;
 
@@ -112,61 +111,25 @@ namespace MCSC.Parsing
 
         // Clean up for the summary
         // The summary is the human readable content that is displayed in the ESRI portal 
-        public string SummaryCleanUp(string body)
+        private string SummaryCleanUp(string body)
         {
-            //Console.WriteLine("Inside Clean up!!! \n");
-            // Remove all tags
-            string result = Regex.Replace(body, "<.*?>", " ");
-
+            string result = StringSanitizer.RemoveHtmlTags(body);
             result = WebUtility.HtmlDecode(result);
-
-            result = Regex.Replace(result, @"[#]+|\\s+|\t|\n|\r", " ");
-
-            // Remove all extra spaces
-            var options = RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant;
-            Regex regex = new Regex("[ ]{2,}", options);
-            result = regex.Replace(result, " ");
-
+            result = StringSanitizer.RemoveHashtags(result);
+            result = StringSanitizer.RemoveDoublespaces(result);
             result = result.Trim();
             return result;
         }
 
         // Clean up for the ShortSummary
         // The short summary is the shortened version of the summary that is optimized to be processed by LUIS
-        public string ShortSummaryCleanUp(string body)
+        private string ShortSummaryCleanUp(string body)
         {
-            // Remove all tags
-            string result = Regex.Replace(body, "<.*?>", " ");
-            result = result.ToLower();
-            result = result.Replace("&nbsp;", " ");
-            result = result.Replace("&quot;", " ");
-            result = result.Replace("&ndash;", " ");
-            result = result.Replace("&rsquo;", " ");
-            result = result.Replace("&#8217;", "'");
-            result = result.Replace("&#8243;", "\"");
-
-            string[] FillerWords = {"a", "and", "the", "on","or", "at", "was", "with", "contact", "nearest", "detachment",
-             "failed", "investigations", "anyone", "regarding", "approximately", "in", "is", "uknown", "time", "of", "any", "to", "have", "seen",
-             "if", "UnknownClothing", "applicable", "UnknownFile", "it", "unknownclothing", "information","unknownfile", "police", "service", "call", "crime",
-             "stoppers", "from", "by", "all", "also", "that", "his", "please", "been", "this", "concern", "they","are","they","as","had","wearing",
-             "color", "colour", "shirt", "pants","be", "believed", "guardians", "network", "coordinated", "response", "without","complexion",
-             "has", "for", "well-being", "there", "included", "release", "picture", "family", "younger", "shorts", "described", "reported", "police", "officer", 
-             "public", "attention", "asked", "live", "own", "complexity", "victimize", "children", "child", "nations", "when", "person", "jeans", "shoes", "thin",
-             "area", "road", "criminal", "investigation", "division", "concerned", "concern", "build", "assistance", "seeking", "locate", "locating", "stripe",
-             "stripes", "straight", "requesting", "request", "requests", "facebook", "twitter", "avenue", "road", "street", "large", "long", "tiny", "hoodie",
-             "leggings", "sweater", "jacket", "boots", "tennis shoes", "leather", "worried", "backpack", "purse", "whereabouts", "unknown", "help",
-             "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "block", "crossing", "harm", "not", 
-             "danger", "described", "vunerable", "picture", "friend", "thinks", "things", "media", "year", "about", "providers", "cash", "unsuccessful", "attempts", 
-             "accurately", "slimmer", "slightly", "however", "nevertheless", "nike", "adidas", "puma", "joggers"};
-
-            result = Regex.Replace(result, @"\b" + string.Join("\\b|\\b", FillerWords) + "\\b", "");
-            result = Regex.Replace(result, @"[&.;()@#~_]+|\\s+|\t|\n|\r", " ");
-
-            // Remove all extra spaces
-            var options = RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant;
-            Regex regex = new Regex("[ ]{2,}", options);
-            result = regex.Replace(result, " ");
-
+            string result = StringSanitizer.RemoveHtmlTags(body);
+            result = StringSanitizer.SimplifyHtmlEncoded(result);
+            result = StringSanitizer.RemoveFillerWords(result);
+            result = StringSanitizer.RemoveSpecialCharacters(result);
+            result = StringSanitizer.RemoveDoublespaces(result);
             return result.Trim();
         }
     }
