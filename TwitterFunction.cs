@@ -19,7 +19,6 @@ namespace MCSC
         [StorageAccount("BlobStorageConnectionString")]
         [return: Queue("twitter")]
         [FunctionName("TwitterFunction")]
-        
         public static async Task<string> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             ILogger log)
@@ -57,7 +56,6 @@ namespace MCSC
 
                     var links = tweet.TweetText.Split("\t\r\n ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
                         .Where(s => s.StartsWith("http://", StringComparison.InvariantCultureIgnoreCase)
-                                    || s.StartsWith("www.", StringComparison.InvariantCultureIgnoreCase)
                                     || s.StartsWith("https://", StringComparison.InvariantCultureIgnoreCase));
 
                     // only use the link if it resolves to a domain other than twitter
@@ -117,8 +115,12 @@ namespace MCSC
                         {
                             return null;
                         }
-                        var location = response.Headers.Location.ToString();
-                        return await ExpandUrlAsync(location, depth);
+                        var redirectUri = response.Headers.Location;
+                        if (!redirectUri.IsAbsoluteUri)
+                        {
+                            redirectUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority) + redirectUri);
+                        }
+                        return await ExpandUrlAsync(redirectUri.ToString(), depth);
                     }
 
                     if (!response.IsSuccessStatusCode)
