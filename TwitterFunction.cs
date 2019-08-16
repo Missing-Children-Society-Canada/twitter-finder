@@ -28,7 +28,7 @@ namespace MCSC
             var tweets =  JsonConvert.DeserializeObject<List<Tweet>>(requestBody);
             try
             {
-                tweets = await FormatTweetsAsync(tweets);
+                tweets = await FormatTweetsAsync(tweets, log);
                 log.LogInformation($"Number of tweets with the 'missing' word: {tweets.Count}");
 
                 tweets = await CheckDuplicatesInStorageAsync(tweets);
@@ -45,7 +45,7 @@ namespace MCSC
             }
         }
 
-        private static async Task<List<Tweet>> FormatTweetsAsync(List<Tweet> tweets)
+        private static async Task<List<Tweet>> FormatTweetsAsync(List<Tweet> tweets, ILogger log)
         {
             var filteredTweets = new List<Tweet>();
             foreach(var tweet in tweets)
@@ -63,7 +63,17 @@ namespace MCSC
                     // only use the link if it resolves to a domain other than twitter
                     foreach (string link in links)
                     {
-                        string expandedUrl = await ExpandUrlAsync(link);
+                        string expandedUrl;
+                        try
+                        {
+                            expandedUrl = await ExpandUrlAsync(link);
+                        }
+                        catch (Exception e)
+                        {
+                            log.LogError(e, "Could not expand link " + link);
+                            expandedUrl = string.Empty;
+                        }
+
                         if (!string.IsNullOrEmpty(expandedUrl))
                         {
                             // If Twitter is the source domain then don't bother parsing
