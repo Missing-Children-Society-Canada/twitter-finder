@@ -10,13 +10,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using MCSC.Classes;
+using Microsoft.WindowsAzure.Storage;
 
 namespace MCSC
 {
     public static class TwitterFunction
     {
-        private static readonly StorageHelper storageHelper = new StorageHelper();
-
         [StorageAccount("BlobStorageConnectionString")]
         [return: Queue("twitter")]
         [FunctionName("TwitterFunction")]
@@ -25,19 +24,15 @@ namespace MCSC
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            storageHelper.InitializeStorageAccount();
-
             var requestBody = new StreamReader(req.Body).ReadToEnd();
             var tweets =  JsonConvert.DeserializeObject<List<Tweet>>(requestBody);
-            
             try
             {
                 tweets = await FormatTweetsAsync(tweets);
                 log.LogInformation($"Number of tweets with the 'missing' word: {tweets.Count}");
 
-                log.LogInformation($"Updating and looking for duplicated tweets list in Storage");
                 tweets = await CheckDuplicatesInStorageAsync(tweets);
-                log.LogInformation($"Update completed, number of unique tweets {tweets.Count}");
+                log.LogInformation($"Duplicate check completed, number of unique tweets {tweets.Count}");
 
                 if(tweets.Count>0)
                     return JsonConvert.SerializeObject(tweets);
@@ -55,7 +50,7 @@ namespace MCSC
             var filteredTweets = new List<Tweet>();
             foreach(var tweet in tweets)
             {
-                if(tweet.TweetText.Contains("missing", StringComparison.InvariantCultureIgnoreCase))
+                if (tweet.TweetText.Contains("missing", StringComparison.InvariantCultureIgnoreCase))
                 {
                     tweet.TwitterProfileURL = $"https://twitter.com/{tweet.TweetedBy}";
                     tweet.TweetUrl = $"{tweet.TwitterProfileURL}/status/{tweet.TweetId}";
@@ -83,7 +78,6 @@ namespace MCSC
                     filteredTweets.Add(tweet);
                 }
             }
-            filteredTweets.OrderByDescending(n => n.CreatedAtIso);
             return filteredTweets;
         }
         
@@ -128,19 +122,38 @@ namespace MCSC
 
         private static async Task<List<Tweet>> CheckDuplicatesInStorageAsync(List<Tweet> tweets)
         {
+            if (!CloudStorageAccount.TryParse(Utils.GetEnvVariable("BlobStorageConnectionString"),
+                out var storageAccount))
+            {
+                throw new Exception("unable to create storage account connection");
+            }
+            var blobReference = storageAccount.CreateCloudBlobClient()
+                .GetContainerReference(Utils.GetEnvVariable("BlobStorageContainerName"))
+                .GetBlockBlobReference(Utils.GetEnvVariable("BlobStorageBlobName"));
+
             var filteredTweets = new List<Tweet>();
-            var tweetsFromStorage = await storageHelper.GetListOfTweetsAsync();
-            foreach(var tweet in tweets)
+            List<Tweet> tweetsFromStorage;
+            if (await blobReference.ExistsAsync())
+            {
+                string jsonString = await blobReference.DownloadTextAsync();
+                tweetsFromStorage = JsonConvert.DeserializeObject<List<Tweet>>(jsonString);
+            }
+            else
+            {
+                tweetsFromStorage = new List<Tweet>();
+            }
+
+            foreach (var tweet in tweets)
             {
                 int index = tweetsFromStorage.FindIndex(f => f.TweetId == tweet.TweetId);
-            
-                if (index<0) 
+                if (index < 0) 
                 {
                     tweetsFromStorage.Add(tweet);
                     filteredTweets.Add(tweet);
                 }
             }
-            await storageHelper.UpdateBlobAsync(JsonConvert.SerializeObject(tweetsFromStorage));
+            await blobReference.UploadTextAsync(JsonConvert.SerializeObject(tweetsFromStorage));
+
             return filteredTweets;
         }
     }
