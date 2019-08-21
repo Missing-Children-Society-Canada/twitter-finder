@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using MCSC.Classes;
 using Microsoft.WindowsAzure.Storage;
 
 namespace MCSC
@@ -25,17 +24,56 @@ namespace MCSC
         {
             var requestBody = new StreamReader(req.Body).ReadToEnd();
             var tweets =  JsonConvert.DeserializeObject<List<Tweet>>(requestBody);
+
             try
             {
-                tweets = await FormatTweetsAsync(tweets, log);
+                tweets = FilterMissingTweets(tweets);
                 log.LogInformation($"Number of tweets with the 'missing' word: {tweets.Count}");
+                if (tweets.Count == 0)
+                {
+                    return null;
+                }
 
-                tweets = await CheckDuplicatesInStorageAsync(tweets);
-                log.LogInformation($"Duplicate check completed, number of unique tweets {tweets.Count}");
+                if (!CloudStorageAccount.TryParse(Utils.GetEnvVariable("BlobStorageConnectionString"),
+                    out var storageAccount))
+                {
+                    throw new Exception("unable to create storage account connection");
+                }
+                var blobReference = storageAccount.CreateCloudBlobClient()
+                    .GetContainerReference(Utils.GetEnvVariable("BlobStorageContainerName"))
+                    .GetBlockBlobReference(Utils.GetEnvVariable("BlobStorageBlobName"));
 
-                if(tweets.Count>0)
-                    return JsonConvert.SerializeObject(tweets);
-                return null;
+                List<Tweet> tweetsFromStorage;
+                if (await blobReference.ExistsAsync())
+                {
+                    string jsonString = await blobReference.DownloadTextAsync();
+                    tweetsFromStorage = JsonConvert.DeserializeObject<List<Tweet>>(jsonString);
+                }
+                else
+                {
+                    tweetsFromStorage = new List<Tweet>();
+                }
+                
+                var newTweets = new List<Tweet>();
+                foreach (var tweet in tweets)
+                {
+                    int index = tweetsFromStorage.FindIndex(f => f.TweetId == tweet.TweetId);
+                    if (index < 0)
+                    {
+                        var formattedTweet = await FormatTweetAsync(tweet, log);
+                        tweetsFromStorage.Add(formattedTweet);
+                        newTweets.Add(formattedTweet);
+                    }
+                }
+                
+                log.LogInformation($"Duplicate check completed, number of new tweets {newTweets.Count}");
+                if (newTweets.Count == 0)
+                {
+                    return null;
+                }
+                
+                await blobReference.UploadTextAsync(JsonConvert.SerializeObject(tweetsFromStorage));
+                return JsonConvert.SerializeObject(newTweets);
             }
             catch(Exception e)
             {
@@ -44,45 +82,46 @@ namespace MCSC
             }
         }
 
-        private static async Task<List<Tweet>> FormatTweetsAsync(List<Tweet> tweets, ILogger log)
+        private static async Task<Tweet> FormatTweetAsync(Tweet tweet, ILogger log)
+        {
+            tweet.TwitterProfileURL = $"https://twitter.com/{tweet.TweetedBy}";
+            tweet.TweetUrl = $"{tweet.TwitterProfileURL}/status/{tweet.TweetId}";
+
+            var links = tweet.TweetText.Split("\t\r\n ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
+                .Where(s => s.StartsWith("http://", StringComparison.InvariantCultureIgnoreCase)
+                            || s.StartsWith("https://", StringComparison.InvariantCultureIgnoreCase));
+
+            // only use the link if it resolves to a domain other than twitter
+            foreach (string link in links)
+            {
+                string expandedUrl;
+                try
+                {
+                    expandedUrl = await ExpandUrlAsync(link);
+                }
+                catch (Exception e)
+                {
+                    log.LogError(e, "Could not expand link " + link);
+                    expandedUrl = string.Empty;
+                }
+
+                if (!string.IsNullOrEmpty(expandedUrl) &&
+                    !expandedUrl.Contains("twitter.com", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    tweet.SourceUrl = expandedUrl;
+                    break;
+                }
+            }
+            return tweet;
+        }
+
+        private static List<Tweet> FilterMissingTweets(IEnumerable<Tweet> tweets)
         {
             var filteredTweets = new List<Tweet>();
             foreach(var tweet in tweets)
             {
                 if (tweet.TweetText.Contains("missing", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    tweet.TwitterProfileURL = $"https://twitter.com/{tweet.TweetedBy}";
-                    tweet.TweetUrl = $"{tweet.TwitterProfileURL}/status/{tweet.TweetId}";
-
-                    var links = tweet.TweetText.Split("\t\r\n ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
-                        .Where(s => s.StartsWith("http://", StringComparison.InvariantCultureIgnoreCase)
-                                    || s.StartsWith("https://", StringComparison.InvariantCultureIgnoreCase));
-
-                    // only use the link if it resolves to a domain other than twitter
-                    foreach (string link in links)
-                    {
-                        string expandedUrl;
-                        try
-                        {
-                            expandedUrl = await ExpandUrlAsync(link);
-                        }
-                        catch (Exception e)
-                        {
-                            log.LogError(e, "Could not expand link " + link);
-                            expandedUrl = string.Empty;
-                        }
-
-                        if (!string.IsNullOrEmpty(expandedUrl))
-                        {
-                            // If Twitter is the source domain then don't bother parsing
-                            if (!expandedUrl.Contains("twitter.com", StringComparison.InvariantCultureIgnoreCase))
-                            {
-                                tweet.SourceUrl = expandedUrl;
-                                break;
-                            }
-                        }
-                    }
-
                     filteredTweets.Add(tweet);
                 }
             }
@@ -130,43 +169,6 @@ namespace MCSC
                     return url;
                 }
             }
-        }
-
-        private static async Task<List<Tweet>> CheckDuplicatesInStorageAsync(List<Tweet> tweets)
-        {
-            if (!CloudStorageAccount.TryParse(Utils.GetEnvVariable("BlobStorageConnectionString"),
-                out var storageAccount))
-            {
-                throw new Exception("unable to create storage account connection");
-            }
-            var blobReference = storageAccount.CreateCloudBlobClient()
-                .GetContainerReference(Utils.GetEnvVariable("BlobStorageContainerName"))
-                .GetBlockBlobReference(Utils.GetEnvVariable("BlobStorageBlobName"));
-
-            var filteredTweets = new List<Tweet>();
-            List<Tweet> tweetsFromStorage;
-            if (await blobReference.ExistsAsync())
-            {
-                string jsonString = await blobReference.DownloadTextAsync();
-                tweetsFromStorage = JsonConvert.DeserializeObject<List<Tweet>>(jsonString);
-            }
-            else
-            {
-                tweetsFromStorage = new List<Tweet>();
-            }
-
-            foreach (var tweet in tweets)
-            {
-                int index = tweetsFromStorage.FindIndex(f => f.TweetId == tweet.TweetId);
-                if (index < 0) 
-                {
-                    tweetsFromStorage.Add(tweet);
-                    filteredTweets.Add(tweet);
-                }
-            }
-            await blobReference.UploadTextAsync(JsonConvert.SerializeObject(tweetsFromStorage));
-
-            return filteredTweets;
         }
     }
 }

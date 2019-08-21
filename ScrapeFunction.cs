@@ -1,10 +1,9 @@
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
-using MCSC.Parsing;
-using MCSC.Classes;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MCSC.Scrape;
 
 namespace MCSC
 {
@@ -35,16 +34,17 @@ namespace MCSC
 
                     //use smart reference first, if that fails fallback 
                     var smartReference = new SmartReference(luisInput.SourceUrl, log);
-                    if (smartReference.Load(out var shortSummary, out var summary))
+                    var smartIncident = await smartReference.LoadAsync();
+                    if (smartIncident != null)
                     {
-                        luisInput.ShortSummary = shortSummary;
-                        luisInput.Summary = summary;
+                        luisInput.ShortSummary = smartIncident.ShortSummary;
+                        luisInput.Summary = smartIncident.Summary;
                     }
                     else
                     {
                         log.LogWarning($"Smart reference failed to load content from '{luisInput.SourceUrl}'.");
                         var reference = new Reference(luisInput.SourceUrl, log);
-                        var incident = reference.Load();
+                        var incident = await reference.LoadAsync();
 
                         luisInput.ShortSummary = incident.ShortSummary;
                         luisInput.Summary = incident.Summary;

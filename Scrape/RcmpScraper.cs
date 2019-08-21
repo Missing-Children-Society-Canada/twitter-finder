@@ -1,36 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions; 
 using HtmlAgilityPack;
-using MCSC.Classes;
 
-namespace MCSC.Parsing
+namespace MCSC.Scrape
 {
-    public class RCMPParser : IBodyParse
+    public class RcmpScraper : IScraper
     {
-        public string Uri
-        {
-            get
-            {
-                return "services.rcmp-grc";
-            }
-        }
-
         // Parser for https://www.services.rcmp-grc.gc.ca
         // Example: view-source:https://www.services.rcmp-grc.gc.ca/missing-disparus/case-dossier.jsf?case=2001008160&id=0
 
-        public Incident Parse(string body)
+        public Incident Scrape(string body)
         {
             string summary = body;
             string shortSummary = "";
-            try {
+            try
+            {
                 // Load the document
                 var document = new HtmlDocument();
                 document.LoadHtml(body);
 
                 // List of tags that have most of the content
-                var acceptableTags = new String[] { "strong", "dt", "dd", "p"};
+                var acceptableTags = new [] { "strong", "dt", "dd", "p"};
                 var main = document.DocumentNode.SelectNodes("//main");
                 var nodes = new Queue<HtmlNode>(main.First().ChildNodes);
                 while(nodes.Count > 0)
@@ -58,28 +49,24 @@ namespace MCSC.Parsing
                 // Pull only the inner HTML
                 shortSummary = document.DocumentNode.SelectNodes("//main").First().InnerHtml;
             
-            // Just drop everything after "Verify current information" as it is just tip info
-            int indexOfTipInfo = shortSummary.IndexOf("Verify current information");
-            if(indexOfTipInfo >= 0)
+                // Just drop everything after "Verify current information" as it is just tip info
+                int indexOfTipInfo = shortSummary.IndexOf("Verify current information", StringComparison.OrdinalIgnoreCase);
+                if(indexOfTipInfo >= 0)
                     shortSummary = shortSummary.Remove(indexOfTipInfo);
 
-                if (!String.IsNullOrEmpty(shortSummary))
+                if (!string.IsNullOrEmpty(shortSummary))
                 {
                     // Got something meaningful from short summary! 
                     // Override the summary with the more condensed short summary
                     summary = shortSummary;   
                 }
             }
-            catch(Exception e)
+            catch(Exception)
             {
                 // TO DO: Log meaningful error
             }
             // return the results
-            return new Incident()
-            {
-                ShortSummary = shortSummary,
-                Summary = summary
-            };
+            return new Incident(shortSummary, summary);
         }
     }
 }

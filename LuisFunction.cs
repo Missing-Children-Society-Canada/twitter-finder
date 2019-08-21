@@ -2,7 +2,6 @@ using System;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
-using MCSC.Classes;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -59,6 +58,8 @@ namespace MCSC
                 }
 
                 luisResults.Add(missingChild);
+
+                await Task.Delay(200);
             }
 
             return JsonConvert.SerializeObject(luisResults);

@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace MCSC.Parsing
+namespace MCSC.Scrape
 {
     internal static class StringSanitizer
     {
