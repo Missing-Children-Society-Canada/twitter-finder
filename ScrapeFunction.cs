@@ -34,20 +34,27 @@ namespace MCSC
 
                     //use smart reference first, if that fails fallback 
                     var smartReference = new SmartReference(luisInput.SourceUrl, log);
-                    var smartIncident = await smartReference.LoadAsync();
-                    if (smartIncident != null)
+                    var incident = await smartReference.LoadAsync();
+                    if (incident != null)
                     {
-                        luisInput.ShortSummary = smartIncident.ShortSummary;
-                        luisInput.Summary = smartIncident.Summary;
+                        luisInput.ShortSummary = incident.ShortSummary;
+                        luisInput.Summary = incident.Summary;
                     }
                     else
                     {
                         log.LogWarning($"Smart reference failed to load content from '{luisInput.SourceUrl}'.");
-                        var reference = new Reference(luisInput.SourceUrl, log);
-                        var incident = await reference.LoadAsync();
 
-                        luisInput.ShortSummary = incident.ShortSummary;
-                        luisInput.Summary = incident.Summary;
+                        var reference = new Reference(luisInput.SourceUrl, log);
+                        incident = await reference.LoadAsync();
+                        if (incident != null)
+                        {
+                            luisInput.ShortSummary = incident.ShortSummary;
+                            luisInput.Summary = incident.Summary;
+                        }
+                        else
+                        {
+                            log.LogWarning($"Reference failed to load content from '{luisInput.SourceUrl}'.");
+                        }
                     }
                 }
                 else
