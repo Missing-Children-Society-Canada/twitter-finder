@@ -1,7 +1,10 @@
 using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
-namespace MCSC.Parsing
+namespace MCSC.Scrape
 {
     public class SmartReference
     {
@@ -14,12 +17,16 @@ namespace MCSC.Parsing
             this._logger = logger;
         }
 
-        public bool Load(out string shortSummary, out string summary)
+        public async Task<Incident> LoadAsync()
         {
             try
             {
-                var web = new AutoDecompressWebClient();
-                var data = web.DownloadString(_uri);
+                var handler = new HttpClientHandler
+                {
+                    AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
+                };
+                var web = new HttpClient(handler);
+                var data = await web.GetStringAsync(_uri);
 
                 data = StringSanitizer.SimplifyHtmlEncoded(data);
 
@@ -27,17 +34,17 @@ namespace MCSC.Parsing
                 var article = sr.GetArticle();
                 if (!string.IsNullOrEmpty(article.TextContent))
                 {
-                    shortSummary =
+                    var shortSummary =
                         StringSanitizer.RemoveDoublespaces(
                                 StringSanitizer.RemoveSpecialCharacters(
                                     StringSanitizer.RemoveFillerWords(article.TextContent)))
                                     .Trim();
 
-                    summary =
+                    var summary =
                         StringSanitizer.RemoveDoublespaces(
                             StringSanitizer.RemoveHashtags(article.TextContent))
                             .Trim();
-                    return true;
+                    return new Incident(shortSummary, summary);
                 }
             }
             catch (Exception e)
@@ -45,9 +52,7 @@ namespace MCSC.Parsing
                 _logger.LogError(e, "Exception loading article");
             }
 
-            summary = null;
-            shortSummary = null;
-            return false;
+            return null;
         }
     }
 }

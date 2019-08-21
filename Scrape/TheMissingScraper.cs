@@ -1,23 +1,14 @@
 using System;
 using System.Linq;
 using HtmlAgilityPack;
-using MCSC.Classes;
 
-namespace MCSC.Parsing
+namespace MCSC.Scrape
 {
-    public class TheMissingParser : IBodyParse
+    public class TheMissingScraper : IScraper
     {
-        public string Uri
-        {
-            get
-            {
-                return "themissing.ca";
-            }
-        }
         // Parser for https://www.themissing.ca
         // Example: view-source:https://www.themissing.ca/listing/treasure-spoon-13-missing-girl-from-thunder-bay-ontario/
-
-        public Incident Parse(string body)
+        public Incident Scrape(string body)
         {
             string summary = "";
             string shortSummary = "";
@@ -43,24 +34,20 @@ namespace MCSC.Parsing
                     {
                         shortSummary = shortSummary + n.InnerText;
                     }
-                    if (!String.IsNullOrEmpty(shortSummary))
+                    if (!string.IsNullOrEmpty(shortSummary))
                     {
                         // Got something meaningful from short summary!
                         summary = shortSummary;   
                     }
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // TODO: Proper Error handling!!!
                 summary = body; 
             }
             // return the results
-            return new Incident
-            {
-                Summary = summary,
-                ShortSummary = shortSummary,
-            };
+            return new Incident(shortSummary, summary);
         }
     }
 }

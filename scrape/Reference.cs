@@ -1,11 +1,12 @@
 using System;
-using HtmlAgilityPack;
 using System.Linq;
 using System.Net;
-using MCSC.Classes;
+using System.Net.Http;
+using System.Threading.Tasks;
+using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 
-namespace MCSC.Parsing
+namespace MCSC.Scrape
 {
     public class Reference
     {
@@ -18,12 +19,16 @@ namespace MCSC.Parsing
             _logger = logger;
         }
 
-        private string Body()
+        private async Task<string> BodyAsync()
         {
             try
             {
-                var web = new AutoDecompressWebClient();
-                var data = web.DownloadString(this._uri);
+                var handler = new HttpClientHandler
+                {
+                    AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
+                };
+                var web = new HttpClient(handler);
+                var data = await web.GetStringAsync(this._uri);
                 var doc = new HtmlDocument();
                 doc.LoadHtml(data);
 
@@ -40,13 +45,13 @@ namespace MCSC.Parsing
             }
         }
 
-        public Incident Load()
+        public async Task<Incident> LoadAsync()
         {
-            var body = this.Body();
+            var body = await this.BodyAsync();
             if (String.IsNullOrEmpty(body))
             {
                 _logger.LogInformation("External reference body is empty.");
-                return new Incident();
+                return null;
             }
 
             string cutdownbody = "";
@@ -72,41 +77,33 @@ namespace MCSC.Parsing
             }
 
             Incident incident;
-            var parser = ParserFactory.Instance.BuildParser(this._uri);
+            var parser = ScraperFactory.Instance.BuildScraper(this._uri);
             if (parser == null)
             {
                 _logger.LogWarning($"No specific parser defined for site @ {this._uri}, using fallback.");
-                incident = new Incident()
-                {
-                    // We don't want to set the short summary because then luis will parse it!
-                    // ShortSummary = body,
-                    Summary = body
-                };
+                // We don't want to set the short summary because then luis will parse it!
+                incident = new Incident(null, body);
             }
             else
             {
-                incident = parser.Parse(cutdownbody);
+                incident = parser.Scrape(cutdownbody);
             }
 
             var shortSummary = "";
             var summary = "";
-            if (!String.IsNullOrEmpty(incident.ShortSummary))
+            if (!string.IsNullOrEmpty(incident.ShortSummary))
             {
                 // If the short summary is available then cut it down to be optimized for LUIS
                 shortSummary = this.ShortSummaryCleanUp(incident.ShortSummary);
             }
 
-            if (!String.IsNullOrEmpty(incident.Summary))
+            if (!string.IsNullOrEmpty(incident.Summary))
             {
                 // If the summary is available then cut it down to make it more human readable
                 summary = this.SummaryCleanUp(incident.Summary);
             }
 
-            return new Incident
-            {
-                ShortSummary = shortSummary,
-                Summary = summary
-            };
+            return new Incident(shortSummary, summary);
         }
 
         // Clean up for the summary

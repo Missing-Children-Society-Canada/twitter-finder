@@ -1,10 +1,9 @@
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
-using MCSC.Parsing;
-using MCSC.Classes;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MCSC.Scrape;
 
 namespace MCSC
 {
@@ -35,19 +34,27 @@ namespace MCSC
 
                     //use smart reference first, if that fails fallback 
                     var smartReference = new SmartReference(luisInput.SourceUrl, log);
-                    if (smartReference.Load(out var shortSummary, out var summary))
+                    var incident = await smartReference.LoadAsync();
+                    if (incident != null)
                     {
-                        luisInput.ShortSummary = shortSummary;
-                        luisInput.Summary = summary;
+                        luisInput.ShortSummary = incident.ShortSummary;
+                        luisInput.Summary = incident.Summary;
                     }
                     else
                     {
                         log.LogWarning($"Smart reference failed to load content from '{luisInput.SourceUrl}'.");
-                        var reference = new Reference(luisInput.SourceUrl, log);
-                        var incident = reference.Load();
 
-                        luisInput.ShortSummary = incident.ShortSummary;
-                        luisInput.Summary = incident.Summary;
+                        var reference = new Reference(luisInput.SourceUrl, log);
+                        incident = await reference.LoadAsync();
+                        if (incident != null)
+                        {
+                            luisInput.ShortSummary = incident.ShortSummary;
+                            luisInput.Summary = incident.Summary;
+                        }
+                        else
+                        {
+                            log.LogWarning($"Reference failed to load content from '{luisInput.SourceUrl}'.");
+                        }
                     }
                 }
                 else

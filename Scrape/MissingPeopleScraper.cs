@@ -1,24 +1,12 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions; 
 using HtmlAgilityPack;
-using MCSC.Classes;
 
-namespace MCSC.Parsing
+namespace MCSC.Scrape
 {
-    public class MissingPeopleParser : IBodyParse
+    public class MissingPeopleScraper : IScraper
     {
         // Example: http://missingpeople.ca/2018/11/missing-girl-in-iqaluit-nunavut-alison-bracken-12/
-        public string Uri
-        {
-            get
-            {
-                return "missingpeople.ca";
-            }
-        }
-
-        public Incident Parse(string body)
+        public Incident Scrape(string body)
         {   
             string shortSummary = "";
             string summary = body;
@@ -34,24 +22,19 @@ namespace MCSC.Parsing
                     {
                         shortSummary = shortSummary + n.InnerHtml;
                     }
-                    if (!String.IsNullOrEmpty(shortSummary))
+                    if (!string.IsNullOrEmpty(shortSummary))
                     {
                         // Got something meaningful from short summary! 
                         // Override the summary with the more condensed short summary
                         summary = shortSummary;   
                     }
                 }
-
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // TODO: Log meaningful error
             }
-            return new Incident()
-            {
-                ShortSummary = shortSummary,
-                Summary = summary
-            };
+            return new Incident(shortSummary, summary);
         }
     }
 }
