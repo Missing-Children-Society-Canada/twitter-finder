@@ -6,13 +6,13 @@ namespace MCSC.Scrape
     public sealed class ScraperFactory
     {
         private static ScraperFactory _instance;
-        private static readonly object padlock = new object();
+        private static readonly object Padlock = new object();
 
         public static ScraperFactory Instance
         {
             get
             {
-                lock (padlock)
+                lock (Padlock)
                 {
                     return _instance ?? (_instance = new ScraperFactory());
                 }
@@ -48,7 +48,7 @@ namespace MCSC.Scrape
                 if (url.Contains(keyValuePair.Key))
                 {
                     Type t = keyValuePair.Value;
-                    return ((IScraper)Activator.CreateInstance(t));
+                    return Activator.CreateInstance(t) as IScraper;
                 }
             }
             return null;

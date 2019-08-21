@@ -21,7 +21,7 @@ namespace MCSC
             logger.LogInformation($"Luis function {listofInputs.Count} items, invoked: {luisInputs}");
 
             var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Utils.GetEnvVariable("LUISsubscriptionKey"));
+            httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Environment.GetEnvironmentVariable("LUISsubscriptionKey", EnvironmentVariableTarget.Process));
 
             IList<MissingChild> luisResults = new List<MissingChild>();
             foreach (var luisInput in listofInputs)
@@ -77,8 +77,8 @@ namespace MCSC
         ///</summary>
         private static async Task<LuisResult> GetLuisResult(HttpClient httpClient, string shortSummary, ILogger logger)
         {
-            string luisAppID = Utils.GetEnvVariable("LUISappID");
-            string luisEndpoint = Utils.GetEnvVariable("LUISendpoint");
+            string luisAppID = Environment.GetEnvironmentVariable("LUISappID", EnvironmentVariableTarget.Process);
+            string luisEndpoint = Environment.GetEnvironmentVariable("LUISendpoint", EnvironmentVariableTarget.Process);
 
             string luisUri = $"{luisEndpoint}{luisAppID}?verbose=true&timezoneOffset=-360&q=\"{shortSummary}\"";
             var response = await httpClient.GetAsync(luisUri);
