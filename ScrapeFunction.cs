@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using MCSC.Scrape;
 
 namespace MCSC
 {
@@ -32,9 +31,7 @@ namespace MCSC
                 {
                     log.LogInformation($"Loading external reference into scraper '{luisInput.SourceUrl}'.");
 
-                    //use smart reference first, if that fails fallback 
-                    var smartReference = new SmartReference(luisInput.SourceUrl, log);
-                    var incident = await smartReference.LoadAsync();
+                    var incident = await GetIncidentFromUrl(log, luisInput);
                     if (incident != null)
                     {
                         luisInput.ShortSummary = incident.ShortSummary;
@@ -42,19 +39,7 @@ namespace MCSC
                     }
                     else
                     {
-                        log.LogWarning($"Smart reference failed to load content from '{luisInput.SourceUrl}'.");
-
-                        var reference = new Reference(luisInput.SourceUrl, log);
-                        incident = await reference.LoadAsync();
-                        if (incident != null)
-                        {
-                            luisInput.ShortSummary = incident.ShortSummary;
-                            luisInput.Summary = incident.Summary;
-                        }
-                        else
-                        {
-                            log.LogWarning($"Reference failed to load content from '{luisInput.SourceUrl}'.");
-                        }
+                        log.LogWarning($"Reference failed to load content from '{luisInput.SourceUrl}'.");
                     }
                 }
                 else
@@ -69,6 +54,24 @@ namespace MCSC
                 scrapedTweets.Add(luisInput);
             }
             return JsonConvert.SerializeObject(scrapedTweets); 
+        }
+
+        private static async Task<Incident> GetIncidentFromUrl(ILogger log, LuisInput luisInput)
+        {
+            //use smart reference first
+            var smartReference = new SmartReference(luisInput.SourceUrl, log);
+            var incident = await smartReference.LoadAsync();
+            if (incident != null)
+            {
+                return incident;
+            }
+
+            log.LogWarning($"Smart reference failed to load content from '{luisInput.SourceUrl}'.");
+
+            //fallback 
+            var reference = new Reference(luisInput.SourceUrl, log);
+            incident = await reference.LoadAsync();
+            return incident;
         }
     }
 }

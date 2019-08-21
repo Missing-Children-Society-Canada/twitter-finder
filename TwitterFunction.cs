@@ -34,14 +34,14 @@ namespace MCSC
                     return null;
                 }
 
-                if (!CloudStorageAccount.TryParse(Utils.GetEnvVariable("BlobStorageConnectionString"),
+                if (!CloudStorageAccount.TryParse(Environment.GetEnvironmentVariable("BlobStorageConnectionString", EnvironmentVariableTarget.Process),
                     out var storageAccount))
                 {
                     throw new Exception("unable to create storage account connection");
                 }
                 var blobReference = storageAccount.CreateCloudBlobClient()
-                    .GetContainerReference(Utils.GetEnvVariable("BlobStorageContainerName"))
-                    .GetBlockBlobReference(Utils.GetEnvVariable("BlobStorageBlobName"));
+                    .GetContainerReference(Environment.GetEnvironmentVariable("BlobStorageContainerName", EnvironmentVariableTarget.Process))
+                    .GetBlockBlobReference(Environment.GetEnvironmentVariable("BlobStorageBlobName", EnvironmentVariableTarget.Process));
 
                 List<Tweet> tweetsFromStorage;
                 if (await blobReference.ExistsAsync())
