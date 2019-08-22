@@ -36,14 +36,13 @@ namespace MCSC
                 {
                     var shortSummary =
                         StringSanitizer.RemoveDoublespaces(
-                                StringSanitizer.RemoveSpecialCharacters(
-                                    StringSanitizer.RemoveFillerWords(article.TextContent)))
-                                    .Trim();
+                        StringSanitizer.RemoveSpecialCharacters(article.TextContent))
+                        .Trim();
 
                     var summary =
                         StringSanitizer.RemoveDoublespaces(
-                            StringSanitizer.RemoveHashtags(article.TextContent))
-                            .Trim();
+                        StringSanitizer.RemoveHashtags(article.TextContent))
+                        .Trim();
                     return new Incident(shortSummary, summary);
                 }
             }
