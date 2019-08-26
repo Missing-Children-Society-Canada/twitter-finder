@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using AngleSharp.Dom;
 
 namespace MCSC
 {
@@ -31,6 +32,7 @@ namespace MCSC
                 data = StringSanitizer.SimplifyHtmlEncoded(data);
 
                 var sr = new SmartReader.Reader(_uri, data);
+                sr.AddCustomOperationStart(SpaceElements);
                 var article = sr.GetArticle();
                 if (!string.IsNullOrEmpty(article.TextContent))
                 {
@@ -52,6 +54,20 @@ namespace MCSC
             }
 
             return null;
+        }
+        
+        // space out certain elements so that the article text receives these as sentence breaks
+        // input such as <li>abc</li><li>def</li> should be 'abc\r\n def' rather than 'abcdef'
+        private static void SpaceElements(IElement element)
+        {
+            foreach (var c in element.QuerySelectorAll("li"))
+            {
+                c.InnerHtml = "\r\n" + c.InnerHtml;
+            }
+            foreach (var c in element.QuerySelectorAll("p"))
+            {
+                c.InnerHtml = "\r\n" + c.InnerHtml;
+            }
         }
     }
 }
