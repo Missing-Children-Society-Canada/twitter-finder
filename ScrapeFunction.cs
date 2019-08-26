@@ -45,10 +45,14 @@ namespace MCSC
                 else
                 {
                     log.LogInformation("No source url was available for this input, skipping scrape.");
-                    luisInput.Summary = StringSanitizer.RemoveHashtags(tweet.TweetText);
+                    string text = StringSanitizer.SimplifyHtmlEncoded(tweet.TweetText);
 
-                    luisInput.ShortSummary = StringSanitizer.RemoveFillerWords(
-                        StringSanitizer.RemoveHashtags(tweet.TweetText));
+                    luisInput.Summary = StringSanitizer.RemoveDoublespaces(text);
+                    
+                    luisInput.ShortSummary = 
+                        StringSanitizer.RemoveDoublespaces(
+                        StringSanitizer.RemoveUrls(
+                        StringSanitizer.RemoveHashtags(text)));
                 }
                 
                 scrapedTweets.Add(luisInput);

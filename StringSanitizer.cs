@@ -11,8 +11,13 @@ namespace MCSC
 
         public static string RemoveDoublespaces(string input)
         {
-            Regex regex = new Regex("[ ]{2,}", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant);
+            Regex regex = new Regex("[ |\t|\n|\r]{2,}", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant);
             return regex.Replace(input, " ");
+        }
+
+        public static string RemoveUrls(string input)
+        {
+            return Regex.Replace(input, @"(?:https?):\/\/[\S]+", "");
         }
 
         public static string RemoveFillerWords(string input)
@@ -60,13 +65,23 @@ namespace MCSC
 
         public static string SimplifyHtmlEncoded(string input)
         {
-            return input.Replace("&nbsp;", " ")
-                .Replace("&quot;", " ")
-                .Replace("&ndash;", " ")
-                .Replace("&rsquo;", " ")
-                .Replace("&lsquo;", "'")
-                .Replace("&#8217;", "'")
-                .Replace("&#8243;", "\"");
+            // replace common html entities with basic text 
+            return input
+                .Replace("&nbsp;", " ")
+                .Replace("&quot;", "\"")
+                .Replace("&middot;", ".").Replace("&#183;", ".")
+                .Replace("&ndash;", "-").Replace("&#8211;", "-")
+                .Replace("&mdash;", "--").Replace("&#8212;", "--")
+                .Replace("&lsquo;", "'").Replace("&#8216;", "'")
+                .Replace("&rsquo;", "'").Replace("&#8217;", "'")
+                .Replace("&sbquo;", ",").Replace("&#8218;", ",")
+                .Replace("&ldquo;", "\"").Replace("&#8220;", "\"")
+                .Replace("&rdquo;", "\"").Replace("&#8221;", "\"")
+                .Replace("&bdquo;", ",,").Replace("&#8222;", ",,")
+                .Replace("&dagger;", "*").Replace("&#8224;", "*")
+                .Replace("&bull;", "*").Replace("&#8226;", "*")
+                .Replace("&hellip;", "...").Replace("&#8230;", "...")
+                .Replace("&prime;", "\"").Replace("&#8243;", "\"");
         }
     }
 }
