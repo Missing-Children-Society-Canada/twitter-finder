@@ -11,8 +11,13 @@ namespace MCSC
 
         public static string RemoveDoublespaces(string input)
         {
-            Regex regex = new Regex("[ ]{2,}", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant);
+            Regex regex = new Regex("[ |\t|\n|\r]{2,}", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant);
             return regex.Replace(input, " ");
+        }
+
+        public static string RemoveUrls(string input)
+        {
+            return Regex.Replace(input, @"(?:https?):\/\/[\S]+", "");
         }
 
         public static string RemoveFillerWords(string input)
