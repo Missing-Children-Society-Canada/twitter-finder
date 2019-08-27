@@ -15,20 +15,28 @@ namespace MCSC
         [StorageAccount("BlobStorageConnectionString")]
         [return: Queue("luis")]
         [FunctionName("LuisFunction")]
-        public static async Task<string> Run([QueueTrigger("scrape")]string luisInputs, ILogger logger)
+        public static async Task<string> Run([QueueTrigger("scrape")]string json, ILogger logger)
         {
-            var listofInputs = JsonConvert.DeserializeObject<List<LuisInput>>(luisInputs);
-            logger.LogInformation($"Luis function {listofInputs.Count} items, invoked: {luisInputs}");
+            var luisInputs = JsonConvert.DeserializeObject<List<LuisInput>>(json);
+            logger.LogInformation($"Luis function {luisInputs.Count} items, invoked: {json}");
 
             var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Environment.GetEnvironmentVariable("LUISsubscriptionKey", EnvironmentVariableTarget.Process));
 
-            IList<MissingChild> luisResults = new List<MissingChild>();
-            foreach (var luisInput in listofInputs)
+            IList<MissingPerson> results = new List<MissingPerson>();
+            foreach (var luisInput in luisInputs)
             {
                 string shortSummary = luisInput.ShortSummary;
                 
-                MissingChild missingChild = FillInformationForMissingChild(luisInput);
+                var missingPerson = new MissingPerson
+                {
+                    SourceUrl = luisInput.SourceUrl,
+                    TweetUrl = luisInput.TweetUrl,
+                    TwitterProfileUrl = luisInput.TwitterProfileUrl,
+                    Summary = luisInput.Summary,
+                    ShortSummary = luisInput.ShortSummary
+                };
+
                 if (!string.IsNullOrEmpty(shortSummary))
                 {
                     shortSummary = shortSummary.Replace("&","");
@@ -40,12 +48,13 @@ namespace MCSC
                     var luisResult = await GetLuisResult(httpClient, shortSummary, logger);
                     if (luisResult != null)
                     {
-                        var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.EntityFound));
+                        var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.Entity));
                         logger.LogInformation($"LUIS returned the following entities:{entityKeys}");
 
-                        var bestEntities = SelectBestEntities(luisResult.Entities);
-
-                        MapLuisResultToMissingChild(missingChild, bestEntities, logger);
+                        if(luisResult.TopScoringIntent.Intent == "GetDescription")
+                        {
+                            MapLuisResultToMissingPerson(missingPerson, luisResult, logger);
+                        }
                     }
                     else
                     {
@@ -57,113 +66,132 @@ namespace MCSC
                     logger.LogInformation($"LUIS skipped tweet {luisInput.TweetUrl} due to missing short summary.");
                 }
 
-                luisResults.Add(missingChild);
+                results.Add(missingPerson);
 
                 await Task.Delay(200);
             }
 
-            return JsonConvert.SerializeObject(luisResults);
-        }
-
-        private static IEnumerable<Entity> SelectBestEntities(IEnumerable<Entity> inputList)
-        {
-            return inputList.GroupBy(item => item.Type)
-                .Select(grp => grp.Aggregate((max, cur) => (max == null || cur.Score > max.Score) ? cur : max));
+            return JsonConvert.SerializeObject(results);
         }
 
         ///<summary>
         /// Returns a json string containing the results obtained 
         /// from the LUIS service defined in the env variables
         ///</summary>
-        private static async Task<LuisResult> GetLuisResult(HttpClient httpClient, string shortSummary, ILogger logger)
+        private static async Task<LuisV2Result> GetLuisResult(HttpClient httpClient, string shortSummary, ILogger logger)
         {
             string luisAppID = Environment.GetEnvironmentVariable("LUISappID", EnvironmentVariableTarget.Process);
             string luisEndpoint = Environment.GetEnvironmentVariable("LUISendpoint", EnvironmentVariableTarget.Process);
+            string luisStaging = Environment.GetEnvironmentVariable("LUISstaging", EnvironmentVariableTarget.Process);
 
-            string luisUri = $"{luisEndpoint}{luisAppID}?verbose=true&timezoneOffset=-360&q=\"{shortSummary}\"";
+            string luisUri = $"{luisEndpoint}{luisAppID}?verbose=false{luisStaging}&timezoneOffset=-360&q=\"{shortSummary}\"";
+            
             var response = await httpClient.GetAsync(luisUri);
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 var contents = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<LuisResult>(contents);
+                return JsonConvert.DeserializeObject<LuisV2Result>(contents);
             }
             logger.LogError($"LUIS returned error status code {response.StatusCode}.");
             return null;
         }
 
-        private static MissingChild FillInformationForMissingChild(LuisInput luisInput)
+        private static void MapLuisResultToMissingPerson(MissingPerson missingPerson, LuisV2Result luisResult, ILogger logger)
         {
-            return new MissingChild
-            {
-                SourceUrl = luisInput.SourceUrl,
-                TweetUrl = luisInput.TweetUrl,
-                TwitterProfileUrl = luisInput.TwitterProfileUrl,
-                Summary = luisInput.Summary,
-                ShortSummary = luisInput.ShortSummary
-            };
-        }
+            //construct the missing person record from the LUIS result, some properties are constructed from a combination of luis results
 
-        private static void MapLuisResultToMissingChild(MissingChild missingChild, IEnumerable<Entity> entities, ILogger logger)
+            // select the best name from the names that are returned using heuristic
+            var nameEntity =
+                luisResult.Entities.FirstOrDefault(f=>f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == "subject") ??
+                luisResult.Entities.FirstOrDefault(f=>f.Type == "builtin.personName" && f.Entity.Contains(' ')) ??
+                luisResult.Entities.SelectTopScore("Name");
+            missingPerson.Name = nameEntity?.Entity;
+
+            // Select the best report location 
+            var cityEntity = 
+                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.geographyV2.city") ??
+                luisResult.Entities.SelectTopScore("City");
+            missingPerson.City = cityEntity?.Entity;
+
+            var provinceEntity = 
+                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.geographyV2.state") ??
+                luisResult.Entities.SelectTopScore("Province");
+            missingPerson.Province = provinceEntity?.Entity;
+
+            missingPerson.Age = luisResult.Entities.SelectTopScoreInt("Age").GetValueOrDefault(0);
+
+            missingPerson.Gender = luisResult.Entities.SelectTopScore("Gender")?.Entity;
+            
+            missingPerson.Ethnicity = luisResult.Entities.SelectTopScore("Ethnicity")?.Entity;
+            
+            var missingSinceEntity = luisResult.Entities.SelectTopScoreDateTime("MissingSince");
+            missingPerson.MissingSince = missingSinceEntity?.ToString("s");
+            
+            missingPerson.Height = luisResult.Entities.SelectTopScore("Height")?.Entity;
+            missingPerson.Weight = luisResult.Entities.SelectTopScore("Weight")?.Entity;
+            
+            // if a found entity exists then the result is 
+            missingPerson.Found = luisResult.Entities.Exists(w=>w.Type == "Found") ? 1 : 0;
+        }
+    }
+
+    internal static class LuisEntityExtensions
+    {
+        public static LuisV2Entity SelectTopScore(this IEnumerable<LuisV2Entity> entities, string type)
         {
-            foreach (var entity in entities)
+            LuisV2Entity result = null;
+            double? topScore = null;
+            foreach(var entity in entities.Where(item => item.Type == type))
             {
-                switch (entity.Type)
+                if(entity.Score > topScore || topScore == null)
                 {
-                    case "Name":
-                        missingChild.Name = entity.EntityFound;
-                        break;
-                    case "City":
-                        missingChild.City = entity.EntityFound;
-                        break;
-                    case "Province":
-                        missingChild.Province = entity.EntityFound;
-                        break;
-                    case "Age":
-                        if (int.TryParse(entity.EntityFound, out var age))
-                        {
-                            missingChild.Age = age;
-                        }
-                        else
-                        {
-                            logger.LogWarning($"Unable to parse {entity.EntityFound} as a valid {entity.Type} integer.");
-                        }
-                        break;
-                    case "Gender":
-                        missingChild.Gender = entity.EntityFound;
-                        break;
-                    case "Ethnicity":
-                        missingChild.Ethnicity = entity.EntityFound;
-                        break;
-                    case "MissingSince":
-                        try
-                        {
-                            // attempt to normalize date in ISO format
-                            var span = new Chronic.Core.Parser().Parse(entity.EntityFound);
-                            if (span?.Start != null)
-                            {
-                                missingChild.MissingSince = span.Start.Value.ToString("s");
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            logger.LogWarning($"Unable to parse {entity.EntityFound} as a valid {entity.Type} datetime.");
-                        }
-                        break;
-                    case "Height":
-                        missingChild.Height = entity.EntityFound;
-                        break;
-                    case "Weight":
-                        missingChild.Weight = entity.EntityFound;
-                        break;
-                    case "Found":
-                        missingChild.Found = 1;
-                        break;
-                    default:
-                        logger.LogWarning($"No mapping defined for {entity.Type}.");
-                        break;
+                    topScore = entity.Score;
+                    result = entity;
                 }
             }
+            return result;
+        }
+
+        public static int? SelectTopScoreInt(this IEnumerable<LuisV2Entity> entities, string type)
+        {
+            int? result = null;
+            double? topScore = null;
+            foreach(var entity in entities.Where(item => item.Type == type))
+            {
+                if(int.TryParse(entity.Entity, out var temp) && (entity.Score > topScore || topScore == null))
+                {
+                    topScore = entity.Score;
+                    result = temp;
+                }
+            }
+            return result;
+        }
+
+        public static DateTime? SelectTopScoreDateTime(this IEnumerable<LuisV2Entity> entities, string type)
+        {
+            DateTime? result = null;
+            double? topScore = null;
+            foreach(var entity in entities.Where(item => item.Type == type))
+            {
+                DateTime? temp = null;
+                try
+                {
+                    var span = new Chronic.Core.Parser().Parse(entity.Entity);
+                    temp = span.Start;
+                }
+                catch(Exception)
+                {
+                    temp = null;
+                }
+                
+                if(temp != null && (entity.Score > topScore || topScore == null))
+                {
+                    topScore = entity.Score;
+                    result = temp;
+                }
+            }
+            return result;
         }
     }
 }
