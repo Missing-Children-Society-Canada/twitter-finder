@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using Newtonsoft.Json;
+using System.Web;
 
 namespace MCSC
 {
@@ -84,7 +85,7 @@ namespace MCSC
             string luisEndpoint = Environment.GetEnvironmentVariable("LUISendpoint", EnvironmentVariableTarget.Process);
             string luisStaging = Environment.GetEnvironmentVariable("LUISstaging", EnvironmentVariableTarget.Process);
 
-            string luisUri = $"{luisEndpoint}{luisAppID}?verbose=false{luisStaging}&timezoneOffset=-360&q=\"{shortSummary}\"";
+            string luisUri = $"{luisEndpoint}{luisAppID}?verbose=false{luisStaging}&timezoneOffset=-360&q={HttpUtility.UrlEncode(shortSummary)}";
             
             var response = await httpClient.GetAsync(luisUri);
 
@@ -104,7 +105,6 @@ namespace MCSC
             // select the best name from the names that are returned using heuristic
             var nameEntity =
                 luisResult.Entities.FirstOrDefault(f=>f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == "subject") ??
-                luisResult.Entities.FirstOrDefault(f=>f.Type == "builtin.personName" && f.Entity.Contains(' ')) ??
                 luisResult.Entities.SelectTopScore("Name");
             missingPerson.Name = nameEntity?.Entity;
 
