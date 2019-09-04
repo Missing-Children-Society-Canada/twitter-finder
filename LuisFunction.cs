@@ -16,63 +16,57 @@ namespace MCSC
         [StorageAccount("BlobStorageConnectionString")]
         [return: Queue("luis")]
         [FunctionName("LuisFunction")]
-        public static async Task<string> Run([QueueTrigger("scrape")]string json, ILogger logger)
+        public static async Task<MissingPerson> Run([QueueTrigger("scrape")]string json, 
+            ILogger logger)
         {
-            var luisInputs = JsonConvert.DeserializeObject<List<LuisInput>>(json);
-            logger.LogInformation($"Luis function {luisInputs.Count} items, invoked: {json}");
+            logger.LogInformation($"Luis function invoked: {json}");
+
+            var luisInput = JsonConvert.DeserializeObject<LuisInput>(json);
 
             var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Environment.GetEnvironmentVariable("LUISsubscriptionKey", EnvironmentVariableTarget.Process));
 
-            IList<MissingPerson> results = new List<MissingPerson>();
-            foreach (var luisInput in luisInputs)
+            string shortSummary = luisInput.ShortSummary;
+            
+            var missingPerson = new MissingPerson
             {
-                string shortSummary = luisInput.ShortSummary;
-                
-                var missingPerson = new MissingPerson
+                SourceUrl = luisInput.SourceUrl,
+                TweetUrl = luisInput.TweetUrl,
+                TwitterProfileUrl = luisInput.TwitterProfileUrl,
+                Summary = luisInput.Summary,
+                ShortSummary = luisInput.ShortSummary
+            };
+
+            if (!string.IsNullOrEmpty(shortSummary))
+            {
+                shortSummary = shortSummary.Replace("&","");
+                // take only first 500 characters so LUIS can handle it 
+                shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 498));
+
+                logger.LogInformation($"Sending LUIS query \"{shortSummary}\".");
+
+                var luisResult = await GetLuisResult(httpClient, shortSummary, logger);
+                if (luisResult != null)
                 {
-                    SourceUrl = luisInput.SourceUrl,
-                    TweetUrl = luisInput.TweetUrl,
-                    TwitterProfileUrl = luisInput.TwitterProfileUrl,
-                    Summary = luisInput.Summary,
-                    ShortSummary = luisInput.ShortSummary
-                };
+                    var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.Entity));
+                    logger.LogInformation($"LUIS returned the following entities:{entityKeys}");
 
-                if (!string.IsNullOrEmpty(shortSummary))
-                {
-                    shortSummary = shortSummary.Replace("&","");
-                    // take only first 500 characters so LUIS can handle it 
-                    shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 498));
-
-                    logger.LogInformation($"Sending LUIS query \"{shortSummary}\".");
-
-                    var luisResult = await GetLuisResult(httpClient, shortSummary, logger);
-                    if (luisResult != null)
+                    if(luisResult.TopScoringIntent.Intent == "GetDescription")
                     {
-                        var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.Entity));
-                        logger.LogInformation($"LUIS returned the following entities:{entityKeys}");
-
-                        if(luisResult.TopScoringIntent.Intent == "GetDescription")
-                        {
-                            MapLuisResultToMissingPerson(missingPerson, luisResult, logger);
-                        }
-                    }
-                    else
-                    {
-                        logger.LogWarning("LUIS did not return entities to process.");
+                        MapLuisResultToMissingPerson(missingPerson, luisResult, logger);
                     }
                 }
                 else
                 {
-                    logger.LogInformation($"LUIS skipped tweet {luisInput.TweetUrl} due to missing short summary.");
+                    logger.LogWarning("LUIS did not return entities to process.");
                 }
-
-                results.Add(missingPerson);
-
-                await Task.Delay(200);
+            }
+            else
+            {
+                logger.LogInformation($"LUIS skipped tweet {luisInput.TweetUrl} due to missing short summary.");
             }
 
-            return JsonConvert.SerializeObject(results);
+            return missingPerson;
         }
 
         ///<summary>
