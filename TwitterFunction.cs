@@ -16,10 +16,10 @@ namespace MCSC
     public static class TwitterFunction
     {
         [StorageAccount("BlobStorageConnectionString")]
-        [return: Queue("twitter")]
         [FunctionName("TwitterFunction")]
-        public static async Task<string> Run(
+        public static async Task Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
+            [Queue("twitter")] ICollector<Tweet> queueCollector,
             ILogger log)
         {
             var requestBody = new StreamReader(req.Body).ReadToEnd();
@@ -31,7 +31,7 @@ namespace MCSC
                 log.LogInformation($"Number of tweets with the 'missing' word: {tweets.Count}");
                 if (tweets.Count == 0)
                 {
-                    return null;
+                    return;
                 }
 
                 if (!CloudStorageAccount.TryParse(Environment.GetEnvironmentVariable("BlobStorageConnectionString", EnvironmentVariableTarget.Process),
@@ -53,8 +53,8 @@ namespace MCSC
                 {
                     tweetsFromStorage = new List<Tweet>();
                 }
-                
-                var newTweets = new List<Tweet>();
+
+                int newTweetsCount = 0;
                 foreach (var tweet in tweets)
                 {
                     int index = tweetsFromStorage.FindIndex(f => f.TweetId == tweet.TweetId);
@@ -62,23 +62,20 @@ namespace MCSC
                     {
                         var formattedTweet = await FormatTweetAsync(tweet, log);
                         tweetsFromStorage.Add(formattedTweet);
-                        newTweets.Add(formattedTweet);
+                        queueCollector.Add(formattedTweet);
+                        newTweetsCount++;
                     }
                 }
+                log.LogInformation($"Duplicate check completed, number of new tweets {newTweetsCount}");
                 
-                log.LogInformation($"Duplicate check completed, number of new tweets {newTweets.Count}");
-                if (newTweets.Count == 0)
+                if (newTweetsCount > 0)
                 {
-                    return null;
+                    await blobReference.UploadTextAsync(JsonConvert.SerializeObject(tweetsFromStorage));
                 }
-                
-                await blobReference.UploadTextAsync(JsonConvert.SerializeObject(tweetsFromStorage));
-                return JsonConvert.SerializeObject(newTweets);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                log.LogInformation(e.ToString());
-                return null;
+                log.LogError(e, "Error in twitter function.");
             }
         }
 
