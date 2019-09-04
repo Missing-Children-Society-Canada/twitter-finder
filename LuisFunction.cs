@@ -16,7 +16,7 @@ namespace MCSC
         [StorageAccount("BlobStorageConnectionString")]
         [return: Queue("luis")]
         [FunctionName("LuisFunction")]
-        public static async Task<MissingPerson> Run([QueueTrigger("scrape")]string json, 
+        public static async Task<string> Run([QueueTrigger("scrape")]string json, 
             ILogger logger)
         {
             logger.LogInformation($"Luis function invoked: {json}");
@@ -66,7 +66,7 @@ namespace MCSC
                 logger.LogInformation($"LUIS skipped tweet {luisInput.TweetUrl} due to missing short summary.");
             }
 
-            return missingPerson;
+            return JsonConvert.SerializeObject(missingPerson);
         }
 
         ///<summary>
