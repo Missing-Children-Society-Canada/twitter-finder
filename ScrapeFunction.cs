@@ -16,26 +16,26 @@ namespace MCSC
 
             var tweet = JsonConvert.DeserializeObject<Tweet>(json);
 
-            var luisInput = new LuisInput
+            var result = new LuisInput
             {
                 SourceUrl = tweet.SourceUrl,
                 TwitterProfileUrl = tweet.TwitterProfileURL,
                 TweetUrl = tweet.TweetUrl
             };
 
-            if(!string.IsNullOrEmpty(luisInput.SourceUrl))
+            if(!string.IsNullOrEmpty(tweet.SourceUrl))
             {
-                log.LogInformation($"Loading external reference into scraper '{luisInput.SourceUrl}'.");
+                log.LogInformation($"Loading external reference into scraper '{tweet.SourceUrl}'.");
 
-                var incident = await GetIncidentFromUrl(log, luisInput);
+                var incident = await GetIncidentFromUrl(log, tweet.SourceUrl);
                 if (incident != null)
                 {
-                    luisInput.ShortSummary = incident.ShortSummary;
-                    luisInput.Summary = incident.Summary;
+                    result.ShortSummary = incident.ShortSummary;
+                    result.Summary = incident.Summary;
                 }
                 else
                 {
-                    log.LogWarning($"Reference failed to load content from '{luisInput.SourceUrl}'.");
+                    log.LogWarning($"Reference failed to load content from '{result.SourceUrl}'.");
                 }
             }
             else
@@ -43,31 +43,31 @@ namespace MCSC
                 log.LogInformation("No source url was available for this input, skipping scrape.");
                 string text = StringSanitizer.SimplifyHtmlEncoded(tweet.TweetText);
 
-                luisInput.Summary = StringSanitizer.RemoveDoublespaces(text);
+                result.Summary = StringSanitizer.RemoveDoublespaces(text);
                 
-                luisInput.ShortSummary = 
+                result.ShortSummary = 
                     StringSanitizer.RemoveDoublespaces(
                     StringSanitizer.RemoveUrls(
                     StringSanitizer.RemoveHashtags(text)));
             }
             
-            return luisInput; 
+            return result; 
         }
 
-        private static async Task<Incident> GetIncidentFromUrl(ILogger log, LuisInput luisInput)
+        private static async Task<Incident> GetIncidentFromUrl(ILogger log, string url)
         {
             //use smart reference first
-            var smartReference = new SmartReference(luisInput.SourceUrl, log);
+            var smartReference = new SmartReference(url, log);
             var incident = await smartReference.LoadAsync();
             if (incident != null)
             {
                 return incident;
             }
 
-            log.LogWarning($"Smart reference failed to load content from '{luisInput.SourceUrl}'.");
+            log.LogWarning($"Smart reference failed to load content from '{url}'.");
 
             //fallback 
-            var reference = new Reference(luisInput.SourceUrl, log);
+            var reference = new Reference(url, log);
             incident = await reference.LoadAsync();
             return incident;
         }
