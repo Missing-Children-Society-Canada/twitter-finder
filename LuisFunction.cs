@@ -47,9 +47,6 @@ namespace MCSC
                 var luisResult = await GetLuisResult(httpClient, shortSummary, logger);
                 if (luisResult != null)
                 {
-                    var entityKeys = string.Join(",", luisResult.Entities.Select(s => s.Type + "=" + s.Entity));
-                    logger.LogInformation($"LUIS returned the following entities:{entityKeys}");
-
                     if(luisResult.TopScoringIntent.Intent == "GetDescription")
                     {
                         MapLuisResultToMissingPerson(missingPerson, luisResult, logger);
@@ -85,6 +82,7 @@ namespace MCSC
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 var contents = await response.Content.ReadAsStringAsync();
+                logger.LogInformation($"LUIS returned: {contents}.");
                 return JsonConvert.DeserializeObject<LuisV2Result>(contents);
             }
             logger.LogError($"LUIS returned error status code {response.StatusCode}.");
@@ -104,20 +102,23 @@ namespace MCSC
 
             // Select the best report location 
             var cityEntity = 
-                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.geographyV2.city") ??
+                //luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.geographyV2.city") ??
                 luisResult.Entities.SelectTopScore("City");
             missingPerson.City = cityEntity?.Entity;
 
-            var provinceEntity = 
-                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.geographyV2.state") ??
-                luisResult.Entities.SelectTopScore("Province");
-            missingPerson.Province = provinceEntity?.Entity;
+            missingPerson.Province =
+                luisResult.Entities.SelectTopScore("provinceV2")?.Resolution.FirstOrDefaultElement() ??
+                luisResult.Entities.SelectTopScore("Province")?.Entity;
 
             missingPerson.Age = luisResult.Entities.SelectTopScoreInt("Age").GetValueOrDefault(0);
 
-            missingPerson.Gender = luisResult.Entities.SelectTopScore("Gender")?.Entity;
+            missingPerson.Gender = 
+                luisResult.Entities.SelectTopScore("genderV2")?.Resolution.FirstOrDefaultElement() ??
+                luisResult.Entities.SelectTopScore("Gender")?.Entity;
             
-            missingPerson.Ethnicity = luisResult.Entities.SelectTopScore("Ethnicity")?.Entity;
+            missingPerson.Ethnicity =
+                luisResult.Entities.SelectTopScore("ethnicityV2")?.Resolution.FirstOrDefaultElement() ??
+                luisResult.Entities.SelectTopScore("Ethnicity")?.Entity;
             
             var missingSinceEntity = luisResult.Entities.SelectTopScoreDateTime("MissingSince");
             missingPerson.MissingSince = missingSinceEntity?.ToString("s");

@@ -14,7 +14,7 @@ namespace MCSC
         [JsonProperty("entities")]
         public List<LuisV2Entity> Entities { get; set; }
     }
-
+    
     public class LuisV2Intent
     {
         [JsonProperty("score")]
@@ -43,5 +43,8 @@ namespace MCSC
     
         [JsonProperty("endIndex")]
         public int? EndIndex { get; set; }
+
+        [JsonProperty("resolution")]
+        public Dictionary<string, object> Resolution { get; set; }
     }
 }
