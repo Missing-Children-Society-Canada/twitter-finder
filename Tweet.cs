@@ -11,5 +11,6 @@ namespace MCSC
         public string TwitterProfileURL { get; set; }
         public string TweetUrl { get; set; }
         public string SourceUrl { get; set; }
+        public Tweet OriginalTweet { get; set; }
     }
 }
