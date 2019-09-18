@@ -6,24 +6,25 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage;
 
 namespace MCSC
 {
+    /// <summary>
+    /// Process source tweet list, look for any unique entries that mention missing persons
+    /// </summary>
     public static class TwitterFunction
     {
         [StorageAccount("BlobStorageConnectionString")]
         [FunctionName("TwitterFunction")]
         public static async Task Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
-            [Queue("twitter")] ICollector<Tweet> queueCollector,
+            [Queue("twitter")] ICollector<TweetModel> queueCollector,
             ILogger log)
         {
             var requestBody = new StreamReader(req.Body).ReadToEnd();
-            var tweets =  JsonConvert.DeserializeObject<List<Tweet>>(requestBody);
+            var tweets =  JsonConvert.DeserializeObject<List<TweetModel>>(requestBody);
 
             try
             {
@@ -46,15 +47,15 @@ namespace MCSC
                     .GetContainerReference(Environment.GetEnvironmentVariable("BlobStorageContainerName", EnvironmentVariableTarget.Process))
                     .GetBlockBlobReference(Environment.GetEnvironmentVariable("BlobStorageBlobName", EnvironmentVariableTarget.Process));
 
-                List<Tweet> tweetsFromStorage;
+                List<TweetModel> tweetsFromStorage;
                 if (await blobReference.ExistsAsync())
                 {
                     string jsonString = await blobReference.DownloadTextAsync();
-                    tweetsFromStorage = JsonConvert.DeserializeObject<List<Tweet>>(jsonString);
+                    tweetsFromStorage = JsonConvert.DeserializeObject<List<TweetModel>>(jsonString);
                 }
                 else
                 {
-                    tweetsFromStorage = new List<Tweet>();
+                    tweetsFromStorage = new List<TweetModel>();
                 }
 
                 int newTweetsCount = 0;
@@ -69,9 +70,8 @@ namespace MCSC
                     if (tweetsFromStorage.FindIndex(f => f.TweetId == tweet.TweetId) >= 0)
                         continue;
 
-                    var formattedTweet = await FormatTweetAsync(tweet, log);
-                    tweetsFromStorage.Add(formattedTweet);
-                    queueCollector.Add(formattedTweet);
+                    tweetsFromStorage.Add(tweet);
+                    queueCollector.Add(tweet);
                     newTweetsCount++;
                 }
                 log.LogInformation($"Duplicate check completed, number of new tweets {newTweetsCount}");
@@ -87,100 +87,25 @@ namespace MCSC
                 throw;
             }
         }
-
-        private static async Task<Tweet> FormatTweetAsync(Tweet tweet, ILogger log)
+        
+        private static List<TweetModel> FilterMissingTweets(IEnumerable<TweetModel> tweets)
         {
-            tweet.TwitterProfileURL = $"https://twitter.com/{tweet.TweetedBy}";
-            tweet.TweetUrl = $"{tweet.TwitterProfileURL}/status/{tweet.TweetId}";
-
-            var links = tweet.TweetText.Split("\t\r\n ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
-                .Where(s => s.StartsWith("http://", StringComparison.InvariantCultureIgnoreCase)
-                            || s.StartsWith("https://", StringComparison.InvariantCultureIgnoreCase));
-
-            // only use the link if it resolves to a domain other than twitter
-            foreach (string link in links)
-            {
-                string expandedUrl;
-                try
-                {
-                    expandedUrl = await ExpandUrlAsync(link);
-                }
-                catch (Exception e)
-                {
-                    log.LogError(e, "Could not expand link " + link);
-                    expandedUrl = string.Empty;
-                }
-
-                if (!string.IsNullOrEmpty(expandedUrl) &&
-                    !expandedUrl.Contains("twitter.com", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    tweet.SourceUrl = expandedUrl;
-                    break;
-                }
-            }
-            return tweet;
-        }
-
-        private static List<Tweet> FilterMissingTweets(IEnumerable<Tweet> tweets)
-        {
-            var filteredTweets = new List<Tweet>();
+            var filteredTweets = new List<TweetModel>();
             foreach(var tweet in tweets)
             {
-                if (tweet.TweetText.Contains("missing", StringComparison.InvariantCultureIgnoreCase))
+                if (tweet.TweetText.Contains("missing", StringComparison.InvariantCultureIgnoreCase) ||
+                    tweet.TweetText.Contains("disparu", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    filteredTweets.Add(tweet);
+                        filteredTweets.Add(tweet);
                 }
             }
             return filteredTweets;
         }
-        
-        private static async Task<string> ExpandUrlAsync(string url, int depth = 0)
-        {
-            using (var handler = new HttpClientHandler())
-            {
-                handler.AllowAutoRedirect = false;
-
-                var request = new HttpRequestMessage
-                {
-                    RequestUri = new Uri(url),
-                    Method = HttpMethod.Head
-                };
-
-                using (var client = new HttpClient(handler))
-                {
-                    var response = await client.SendAsync(request);
-                    var statusCode = (int)response.StatusCode;
-
-                    // We want to handle redirects ourselves so that we can determine the final redirect Location (via header)
-                    if (statusCode >= 300 && statusCode <= 399)
-                    {
-                        //exit if we've exceeded the max link depth, this is intended to stop infinite redirect loops
-                        depth++;
-                        if (depth > 5)
-                        {
-                            return null;
-                        }
-                        var redirectUri = response.Headers.Location;
-                        if (!redirectUri.IsAbsoluteUri)
-                        {
-                            redirectUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority) + redirectUri);
-                        }
-                        return await ExpandUrlAsync(redirectUri.ToString(), depth);
-                    }
-
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        return null;
-                    }
-                    return url;
-                }
-            }
-        }
     }
 
-    public class TweetDateComparer : IComparer<Tweet>
+    public class TweetDateComparer : IComparer<TweetModel>
     {
-        public int Compare(Tweet x, Tweet y)
+        public int Compare(TweetModel x, TweetModel y)
         {
             if (x == null || y == null)
             {
