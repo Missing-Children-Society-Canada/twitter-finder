@@ -40,7 +40,7 @@ namespace MCSC
             {
                 shortSummary = shortSummary.Replace("&","");
                 // take only first 500 characters so LUIS can handle it 
-                shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 498));
+                shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 500));
 
                 logger.LogInformation($"Sending LUIS query \"{shortSummary}\".");
 
@@ -97,7 +97,8 @@ namespace MCSC
 
             // select the best name from the names that are returned using heuristic
             var nameEntity =
-                luisResult.Entities.FirstOrDefault(f=>f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == "subject") ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == "subject") ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == null) ??
                 luisResult.Entities.SelectTopScore("Name");
             missingPerson.Name = nameEntity?.Entity;
 

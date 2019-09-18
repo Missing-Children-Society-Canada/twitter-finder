@@ -34,6 +34,9 @@ namespace MCSC
                     return;
                 }
 
+                // order the tweets by date
+                tweets.Sort(new TweetDateComparer());
+
                 if (!CloudStorageAccount.TryParse(Environment.GetEnvironmentVariable("BlobStorageConnectionString", EnvironmentVariableTarget.Process),
                     out var storageAccount))
                 {
@@ -57,14 +60,19 @@ namespace MCSC
                 int newTweetsCount = 0;
                 foreach (var tweet in tweets)
                 {
-                    int index = tweetsFromStorage.FindIndex(f => f.TweetId == tweet.TweetId);
-                    if (index < 0)
-                    {
-                        var formattedTweet = await FormatTweetAsync(tweet, log);
-                        tweetsFromStorage.Add(formattedTweet);
-                        queueCollector.Add(formattedTweet);
-                        newTweetsCount++;
-                    }
+                    // if this is a re-tweet then check to see if we've already processed the original
+                    if (tweet.OriginalTweet != null &&
+                        tweetsFromStorage.FindIndex(f => f.TweetId == tweet.OriginalTweet.TweetId) >= 0)
+                        continue;
+
+                    // skip the tweet if it was already processed
+                    if (tweetsFromStorage.FindIndex(f => f.TweetId == tweet.TweetId) >= 0)
+                        continue;
+
+                    var formattedTweet = await FormatTweetAsync(tweet, log);
+                    tweetsFromStorage.Add(formattedTweet);
+                    queueCollector.Add(formattedTweet);
+                    newTweetsCount++;
                 }
                 log.LogInformation($"Duplicate check completed, number of new tweets {newTweetsCount}");
                 
@@ -76,6 +84,7 @@ namespace MCSC
             catch (Exception e)
             {
                 log.LogError(e, "Error in twitter function.");
+                throw;
             }
         }
 
@@ -166,6 +175,18 @@ namespace MCSC
                     return url;
                 }
             }
+        }
+    }
+
+    public class TweetDateComparer : IComparer<Tweet>
+    {
+        public int Compare(Tweet x, Tweet y)
+        {
+            if (x == null || y == null)
+            {
+                return 0;
+            }
+            return x.CreatedAtIso.CompareTo(y.CreatedAtIso);
         }
     }
 }
