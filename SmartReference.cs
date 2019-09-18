@@ -26,8 +26,19 @@ namespace MCSC
                 {
                     AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
                 };
-                var web = new HttpClient(handler);
-                var data = await web.GetStringAsync(_uri);
+                var client = new HttpClient(handler);
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 6.2; WOW64; rv:19.0) Gecko/20100101 Firefox/19.0");
+
+                var httpResponseMessage = await client.GetAsync(_uri);
+                httpResponseMessage.EnsureSuccessStatusCode();
+
+                // There is a bug in the .net framework that causes ReadAsStringAsync() to fail if the server reports the content encoding as "utf-8" rather than utf-8 https://github.com/dotnet/corefx/issues/5014
+                if (httpResponseMessage.Content.Headers.ContentType?.CharSet == @"""utf-8""")
+                {
+                    httpResponseMessage.Content.Headers.ContentType.CharSet = "UTF-8";
+                }
+
+                var data  = await httpResponseMessage.Content.ReadAsStringAsync();
 
                 data = StringSanitizer.SimplifyHtmlEncoded(data);
 
