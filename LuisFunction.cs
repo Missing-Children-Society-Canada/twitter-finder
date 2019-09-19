@@ -18,15 +18,10 @@ namespace MCSC
         public static async Task<string> Run([QueueTrigger("scrape")]string json, 
             ILogger logger)
         {
-            logger.LogInformation($"Luis function invoked: {json}");
+            logger.LogInformation($"LuisFunction invoked:\n{json}");
 
             var luisInput = JsonConvert.DeserializeObject<LuisInput>(json);
 
-            var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Environment.GetEnvironmentVariable("LUISsubscriptionKey", EnvironmentVariableTarget.Process));
-
-            string shortSummary = luisInput.ShortSummary;
-            
             var missingPerson = new MissingPerson
             {
                 SourceUrl = luisInput.SourceUrl,
@@ -36,6 +31,7 @@ namespace MCSC
                 ShortSummary = luisInput.ShortSummary
             };
 
+            string shortSummary = luisInput.ShortSummary;
             if (!string.IsNullOrEmpty(shortSummary))
             {
                 shortSummary = shortSummary.Replace("&","");
@@ -44,7 +40,7 @@ namespace MCSC
 
                 logger.LogInformation($"Sending LUIS query \"{shortSummary}\".");
 
-                var luisResult = await GetLuisResult(httpClient, shortSummary, logger);
+                var luisResult = await GetLuisResult(shortSummary, logger);
                 if (luisResult != null)
                 {
                     if(luisResult.TopScoringIntent.Intent == "GetDescription")
@@ -59,24 +55,28 @@ namespace MCSC
             }
             else
             {
-                logger.LogInformation($"LUIS skipped tweet {luisInput.TweetUrl} due to missing short summary.");
+                logger.LogWarning($"LUIS skipped tweet {luisInput.TweetUrl} due to missing short summary.");
             }
 
-            return JsonConvert.SerializeObject(missingPerson);
+            var result = JsonConvert.SerializeObject(missingPerson);
+            logger.LogInformation($"result:\n{result}");
+            return result;
         }
 
         ///<summary>
         /// Returns a json string containing the results obtained 
         /// from the LUIS service defined in the env variables
         ///</summary>
-        private static async Task<LuisV2Result> GetLuisResult(HttpClient httpClient, string shortSummary, ILogger logger)
+        private static async Task<LuisV2Result> GetLuisResult(string shortSummary, ILogger logger)
         {
             string luisAppID = Environment.GetEnvironmentVariable("LUISappID", EnvironmentVariableTarget.Process);
             string luisEndpoint = Environment.GetEnvironmentVariable("LUISendpoint", EnvironmentVariableTarget.Process);
             string luisStaging = Environment.GetEnvironmentVariable("LUISstaging", EnvironmentVariableTarget.Process);
 
             string luisUri = $"{luisEndpoint}{luisAppID}?verbose=false{luisStaging}&timezoneOffset=-360&q={HttpUtility.UrlEncode(shortSummary)}";
-            
+
+            var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Environment.GetEnvironmentVariable("LUISsubscriptionKey", EnvironmentVariableTarget.Process));
             var response = await httpClient.GetAsync(luisUri);
 
             if (response.StatusCode == HttpStatusCode.OK)
