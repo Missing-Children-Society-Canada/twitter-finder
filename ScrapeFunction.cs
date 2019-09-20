@@ -15,7 +15,7 @@ namespace MCSC
         [FunctionName("ScrapeFunction")]
         public static async Task<LuisInput> Run([QueueTrigger("twitter")]string json, ILogger log)
         {
-            log.LogInformation($"Scrape function invoked: {json}");
+            log.LogInformation($"Scrape function invoked:\n{json}");
 
             var tweet = JsonConvert.DeserializeObject<TweetModel>(json);
 
@@ -39,7 +39,8 @@ namespace MCSC
             else
             {
                 log.LogInformation("No source url was available for this input, skipping scrape.");
-                string text = StringSanitizer.SimplifyHtmlEncoded(tweet.TweetText);
+                string text = StringSanitizer.SimplifyPunctuation(
+                    System.Net.WebUtility.HtmlDecode(tweet.TweetText));
 
                 summary = StringSanitizer.RemoveDoublespaces(text);
                 shortSummary = 

@@ -67,21 +67,42 @@ namespace MCSC
         {
             // replace common html entities with basic text 
             return input
-                .Replace("&nbsp;", " ")
-                .Replace("&quot;", "\"")
+                .Replace("&nbsp;", " ") // non breaking space
+                .Replace("&quot;", "\"") // double quote
                 .Replace("&middot;", ".").Replace("&#183;", ".")
-                .Replace("&ndash;", "-").Replace("&#8211;", "-")
-                .Replace("&mdash;", "--").Replace("&#8212;", "--")
-                .Replace("&lsquo;", "'").Replace("&#8216;", "'")
-                .Replace("&rsquo;", "'").Replace("&#8217;", "'")
-                .Replace("&sbquo;", ",").Replace("&#8218;", ",")
-                .Replace("&ldquo;", "\"").Replace("&#8220;", "\"")
-                .Replace("&rdquo;", "\"").Replace("&#8221;", "\"")
-                .Replace("&bdquo;", ",,").Replace("&#8222;", ",,")
+                .Replace("&ndash;", "-").Replace("&#8211;", "-") // en dash
+                .Replace("&mdash;", "--").Replace("&#8212;", "--") // em dash
+                .Replace("&lsquo;", "'").Replace("&#8216;", "'") // left single quotation mark
+                .Replace("&rsquo;", "'").Replace("&#8217;", "'") // right single quotation mark
+                .Replace("&sbquo;", ",").Replace("&#8218;", ",") // single low-9 quotation mark
+                .Replace("&#8219;", "'") // single high-9 reversed quotation mark
+                .Replace("&ldquo;", "\"").Replace("&#8220;", "\"") // left double quotation mark
+                .Replace("&rdquo;", "\"").Replace("&#8221;", "\"") // right double quotation mark
+                .Replace("&bdquo;", ",,").Replace("&#8222;", ",,") // double low-9 quotation mark
                 .Replace("&dagger;", "*").Replace("&#8224;", "*")
                 .Replace("&bull;", "*").Replace("&#8226;", "*")
-                .Replace("&hellip;", "...").Replace("&#8230;", "...")
-                .Replace("&prime;", "\"").Replace("&#8243;", "\"");
+                .Replace("&hellip;", "...").Replace("&#8230;", "...") // horizontal ellipsis
+                .Replace("&prime;", "'").Replace("&#8242;", "'") // prime
+                .Replace("&Prime;", "\"").Replace("&#8243;", "\""); // double prime
+        }
+
+        public static string SimplifyPunctuation(string input)
+        {
+            return input
+                .Replace('\u2013', '-') // en dash
+                .Replace('\u2014', '-') // em dash
+                .Replace('\u2015', '-') // horizontal bar
+                .Replace('\u2017', '_') // double low line
+                .Replace('\u2018', '\'') // left single quotation mark
+                .Replace('\u2019', '\'') // right single quotation mark
+                .Replace('\u201a', ',') // single low-9 quotation mark
+                .Replace('\u201b', '\'') // single high-reversed-9 quotation mark
+                .Replace('\u201c', '\"') // left double quotation mark
+                .Replace('\u201d', '\"') // right double quotation mark
+                .Replace('\u201e', '\"') // double low-9 quotation mark
+                .Replace("\u2026", "...") // horizontal ellipsis
+                .Replace('\u2032', '\'') // prime
+                .Replace('\u2033', '\"'); // double prime
         }
     }
 }
