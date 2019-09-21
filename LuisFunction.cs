@@ -107,21 +107,20 @@ namespace MCSC
             missingPerson.City = cityEntity?.Entity;
 
             missingPerson.Province =
-                luisResult.Entities.SelectTopScore("provinceV2")?.Resolution.FirstOrDefaultElement() ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "provinceV2")?.Resolution.FirstOrDefaultElement() ??
                 luisResult.Entities.SelectTopScore("Province")?.Entity;
 
             missingPerson.Age = luisResult.Entities.SelectTopScoreInt("Age").GetValueOrDefault(0);
 
             missingPerson.Gender = 
-                luisResult.Entities.SelectTopScore("genderV2")?.Resolution.FirstOrDefaultElement() ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "genderV2")?.Resolution.FirstOrDefaultElement() ??
                 luisResult.Entities.SelectTopScore("Gender")?.Entity;
             
             missingPerson.Ethnicity =
-                luisResult.Entities.SelectTopScore("ethnicityV2")?.Resolution.FirstOrDefaultElement() ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "ethnicityV2")?.Resolution.FirstOrDefaultElement() ??
                 luisResult.Entities.SelectTopScore("Ethnicity")?.Entity;
             
-            var missingSinceEntity = luisResult.Entities.SelectTopScoreDateTime("MissingSince");
-            missingPerson.MissingSince = missingSinceEntity?.ToString("s");
+            missingPerson.MissingSince = luisResult.Entities.SelectTopScoreDateTime("MissingSince");
             
             missingPerson.Height = luisResult.Entities.SelectTopScore("Height")?.Entity;
             missingPerson.Weight = luisResult.Entities.SelectTopScore("Weight")?.Entity;

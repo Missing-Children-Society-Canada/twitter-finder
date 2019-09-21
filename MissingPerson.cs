@@ -1,3 +1,5 @@
+using System;
+
 namespace MCSC
 {
     public class MissingPerson
@@ -8,7 +10,7 @@ namespace MCSC
         public int Age { get; set; }
         public string Gender { get; set; }
         public string Ethnicity { get; set; }
-        public string MissingSince { get; set; }
+        public DateTime? MissingSince { get; set; }
         public string Height { get; set; }
         public string Weight { get; set; }
         public int Found { get; set; }
