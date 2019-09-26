@@ -110,7 +110,10 @@ namespace MCSC
                 luisResult.Entities.FirstOrDefault(f => f.Type == "provinceV2")?.Resolution.FirstOrDefaultElement() ??
                 luisResult.Entities.SelectTopScore("Province")?.Entity;
 
-            missingPerson.Age = luisResult.Entities.SelectTopScoreInt("Age").GetValueOrDefault(0);
+            var age = luisResult.Entities.SelectTopScoreInt("Age") ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "age")?.EntityAsInt() ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "ageV2")?.EntityAsInt();
+            missingPerson.Age = age.GetValueOrDefault(0);
 
             missingPerson.Gender = 
                 luisResult.Entities.FirstOrDefault(f => f.Type == "genderV2")?.Resolution.FirstOrDefaultElement() ??

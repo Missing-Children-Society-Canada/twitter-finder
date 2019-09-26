@@ -14,7 +14,7 @@ namespace MCSC
         [JsonProperty("entities")]
         public List<LuisV2Entity> Entities { get; set; }
     }
-    
+
     public class LuisV2Intent
     {
         [JsonProperty("score")]
@@ -37,14 +37,28 @@ namespace MCSC
 
         [JsonProperty("role")]
         public string Role { get; set; }
-    
+
         [JsonProperty("startIndex")]
         public int? StartIndex { get; set; }
-    
+
         [JsonProperty("endIndex")]
         public int? EndIndex { get; set; }
 
         [JsonProperty("resolution")]
         public Dictionary<string, object> Resolution { get; set; }
+    }
+
+    public static class LuisV2Extension
+    {
+        public static int? EntityAsInt(this LuisV2Entity luisV2)
+        {
+            //extract the integer from the entity text 
+            var resultString = System.Text.RegularExpressions.Regex.Match(luisV2.Entity, @"\d+").Value;
+            if(!string.IsNullOrEmpty(resultString) && int.TryParse(resultString, out var i))
+            {
+                return i;
+            }
+            return null;
+        }
     }
 }
