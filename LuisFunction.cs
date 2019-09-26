@@ -129,7 +129,9 @@ namespace MCSC
             missingPerson.Weight = luisResult.Entities.SelectTopScore("Weight")?.Entity;
             
             // if a found entity exists then the result is 
-            missingPerson.Found = luisResult.Entities.Exists(w=>w.Type == "Found") ? 1 : 0;
+            missingPerson.Found = luisResult.Entities.Exists(w=>w.Type == "Found") ||
+                                  string.Equals(luisResult.Entities.FirstOrDefault(f => f.Type == "locatedV2")?.Resolution.FirstOrDefaultElement(), "Located", StringComparison.OrdinalIgnoreCase)
+                                  ? 1 : 0;
         }
     }
 }
