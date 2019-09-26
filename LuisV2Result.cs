@@ -53,10 +53,29 @@ namespace MCSC
         public static int? EntityAsInt(this LuisV2Entity luisV2)
         {
             //extract the integer from the entity text 
-            var resultString = System.Text.RegularExpressions.Regex.Match(luisV2.Entity, @"\d+").Value;
-            if(!string.IsNullOrEmpty(resultString) && int.TryParse(resultString, out var i))
+            var match = System.Text.RegularExpressions.Regex.Match(luisV2.Entity, @"\d{1,2}");
+            if(match.Success)
             {
-                return i;
+                var resultString = match.Value;
+                if(!string.IsNullOrEmpty(resultString) && int.TryParse(resultString, out var i))
+                {
+                    return i;
+                }
+            }
+            return null;
+        }
+
+        public static int? FirstOrDefaultAgeResolution(this LuisV2Entity luisV2)
+        {
+            //extract the integer from the entity text 
+            if(luisV2.Resolution.ContainsKey("unit") && luisV2.Resolution.ContainsKey("value"))
+            {
+                var oUnit = luisV2.Resolution["unit"];
+                var oValu = luisV2.Resolution["value"];
+                if(oUnit.ToString() == "Year" && int.TryParse(oValu.ToString(), out var i ))
+                {
+                    return i;
+                }
             }
             return null;
         }

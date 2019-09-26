@@ -111,7 +111,7 @@ namespace MCSC
                 luisResult.Entities.SelectTopScore("Province")?.Entity;
 
             var age = luisResult.Entities.SelectTopScoreInt("Age") ??
-                luisResult.Entities.FirstOrDefault(f => f.Type == "age")?.EntityAsInt() ??
+                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.age")?.FirstOrDefaultAgeResolution() ??
                 luisResult.Entities.FirstOrDefault(f => f.Type == "ageV2")?.EntityAsInt();
             missingPerson.Age = age.GetValueOrDefault(0);
 
