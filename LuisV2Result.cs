@@ -72,7 +72,8 @@ namespace MCSC
             {
                 var oUnit = luisV2.Resolution["unit"];
                 var oValu = luisV2.Resolution["value"];
-                if(oUnit.ToString() == "Year" && int.TryParse(oValu.ToString(), out var i ))
+                if(oUnit != null && oValu != null &&
+                    oUnit.ToString() == "Year" && int.TryParse(oValu.ToString(), out var i ))
                 {
                     return i;
                 }
