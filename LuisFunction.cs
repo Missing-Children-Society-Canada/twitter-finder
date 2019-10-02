@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
@@ -98,7 +99,13 @@ namespace MCSC
                 luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == "subject") ??
                 luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == null) ??
                 luisResult.Entities.SelectTopScore("Name");
-            missingPerson.Name = nameEntity?.Entity;
+            string personName = nameEntity?.Entity;
+            if (!string.IsNullOrEmpty(personName))
+            {
+                var myTi = new CultureInfo("en-US", false);
+                personName = myTi.TextInfo.ToTitleCase(personName);
+            }
+            missingPerson.Name = personName;
 
             // Select the best report location 
             var cityEntity = 
