@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
@@ -6,6 +7,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using System.Web;
 
@@ -35,24 +37,26 @@ namespace MCSC
             string shortSummary = luisInput.ShortSummary;
             if (!string.IsNullOrEmpty(shortSummary))
             {
-                shortSummary = shortSummary.Replace("&","");
-                // take only first 500 characters so LUIS can handle it 
-                shortSummary = shortSummary.Substring(0, Math.Min(shortSummary.Length, 500));
-
-                logger.LogInformation($"Sending LUIS query \"{shortSummary}\".");
-
-                var luisResult = await GetLuisResult(shortSummary, logger);
-                if (luisResult != null)
+                string[] sentences = Regex.Split(shortSummary, @"(?<=[\.!\?])\s+");
+                List<LuisV2Entity> allEntities = new List<LuisV2Entity>();
+                foreach (string batch in BatchSentences(sentences, 500))
                 {
-                    if(luisResult.TopScoringIntent.Intent == "GetDescription")
+                    logger.LogInformation($"Sending LUIS query \"{batch}\".");
+                    var luisResult = await GetLuisResult(batch, logger);
+                    if (luisResult != null)
                     {
-                        MapLuisResultToMissingPerson(missingPerson, luisResult, logger);
+                        if (luisResult.TopScoringIntent.Intent == "GetDescription")
+                        {
+                            allEntities.AddRange(luisResult.Entities);
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("LUIS did not return entities to process.");
                     }
                 }
-                else
-                {
-                    logger.LogWarning("LUIS did not return entities to process.");
-                }
+
+                MapLuisResultToMissingPerson(missingPerson, allEntities, logger);
             }
             else
             {
@@ -62,6 +66,35 @@ namespace MCSC
             var result = JsonConvert.SerializeObject(missingPerson);
             logger.LogInformation($"result:\n{result}");
             return result;
+        }
+
+        private static IEnumerable<string> BatchSentences(string[] sentences, int maxLen)
+        {
+            for (var index = 0; index < sentences.Length; index++)
+            {
+                var sentence = sentences[index];
+                if (sentence.Length > maxLen)
+                {
+                    yield return sentence.Substring(0, maxLen);
+                }
+                else
+                {
+                    string currentBatch = sentence;
+                    int j = index + 1;
+                    while (j < sentences.Length)
+                    {
+                        var nextSentence = sentences[j];
+                        if (currentBatch.Length + nextSentence.Length > maxLen)
+                        {
+                            break;
+                        }
+                        currentBatch += nextSentence;
+                        index++;
+                        j++;
+                    }
+                    yield return currentBatch;
+                }
+            }
         }
 
         ///<summary>
@@ -90,15 +123,15 @@ namespace MCSC
             return null;
         }
 
-        private static void MapLuisResultToMissingPerson(MissingPerson missingPerson, LuisV2Result luisResult, ILogger logger)
+        private static void MapLuisResultToMissingPerson(MissingPerson missingPerson, List<LuisV2Entity> entities, ILogger logger)
         {
             //construct the missing person record from the LUIS result, some properties are constructed from a combination of luis results
 
             // select the best name from the names that are returned using heuristic
             var nameEntity =
-                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == "subject") ??
-                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == null) ??
-                luisResult.Entities.SelectTopScore("Name");
+                entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == "subject") ??
+                entities.FirstOrDefault(f => f.Type == "builtin.personName" && f.Entity.Contains(' ') && f.Role == null) ??
+                entities.SelectTopScore("Name");
             string personName = nameEntity?.Entity;
             if (!string.IsNullOrEmpty(personName))
             {
@@ -109,35 +142,35 @@ namespace MCSC
 
             // Select the best report location 
             var cityEntity = 
-                //luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.geographyV2.city") ??
-                luisResult.Entities.SelectTopScore("City");
+                //entities.FirstOrDefault(f => f.Type == "builtin.geographyV2.city") ??
+                entities.SelectTopScore("City");
             missingPerson.City = cityEntity?.Entity;
 
             missingPerson.Province =
-                luisResult.Entities.FirstOrDefault(f => f.Type == "provinceV2")?.Resolution.FirstOrDefaultElement() ??
-                luisResult.Entities.SelectTopScore("Province")?.Entity;
+                entities.FirstOrDefault(f => f.Type == "provinceV2")?.Resolution.FirstOrDefaultElement() ??
+                entities.SelectTopScore("Province")?.Entity;
 
-            var age = luisResult.Entities.SelectTopScoreInt("Age") ??
-                luisResult.Entities.FirstOrDefault(f => f.Type == "builtin.age")?.FirstOrDefaultAgeResolution() ??
-                luisResult.Entities.FirstOrDefault(f => f.Type == "ageV2")?.EntityAsInt();
+            var age = entities.SelectTopScoreInt("Age") ??
+                entities.FirstOrDefault(f => f.Type == "builtin.age")?.FirstOrDefaultAgeResolution() ??
+                entities.FirstOrDefault(f => f.Type == "ageV2")?.EntityAsInt();
             missingPerson.Age = age.GetValueOrDefault(0);
 
             missingPerson.Gender = 
-                luisResult.Entities.FirstOrDefault(f => f.Type == "genderV2")?.Resolution.FirstOrDefaultElement() ??
-                luisResult.Entities.SelectTopScore("Gender")?.Entity;
+                entities.FirstOrDefault(f => f.Type == "genderV2")?.Resolution.FirstOrDefaultElement() ??
+                entities.SelectTopScore("Gender")?.Entity;
             
             missingPerson.Ethnicity =
-                luisResult.Entities.FirstOrDefault(f => f.Type == "ethnicityV2")?.Resolution.FirstOrDefaultElement() ??
-                luisResult.Entities.SelectTopScore("Ethnicity")?.Entity;
+                entities.FirstOrDefault(f => f.Type == "ethnicityV2")?.Resolution.FirstOrDefaultElement() ??
+                entities.SelectTopScore("Ethnicity")?.Entity;
             
-            missingPerson.MissingSince = luisResult.Entities.SelectTopScoreDateTime("MissingSince");
+            missingPerson.MissingSince = entities.SelectTopScoreDateTime("MissingSince");
             
-            missingPerson.Height = luisResult.Entities.SelectTopScore("Height")?.Entity;
-            missingPerson.Weight = luisResult.Entities.SelectTopScore("Weight")?.Entity;
+            missingPerson.Height = entities.SelectTopScore("Height")?.Entity;
+            missingPerson.Weight = entities.SelectTopScore("Weight")?.Entity;
             
             // if a found entity exists then the result is 
-            missingPerson.Found = luisResult.Entities.Exists(w=>w.Type == "Found") ||
-                                  string.Equals(luisResult.Entities.FirstOrDefault(f => f.Type == "locatedV2")?.Resolution.FirstOrDefaultElement(), "Located", StringComparison.OrdinalIgnoreCase)
+            missingPerson.Found = entities.Exists(w=>w.Type == "Found") ||
+                                  string.Equals(entities.FirstOrDefault(f => f.Type == "locatedV2")?.Resolution.FirstOrDefaultElement(), "Located", StringComparison.OrdinalIgnoreCase)
                                   ? 1 : 0;
         }
     }
