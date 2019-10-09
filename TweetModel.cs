@@ -31,5 +31,25 @@ namespace MCSC
         /// Represents an original tweet post.
         /// </summary>
         public TweetModel OriginalTweet { get; set; }
+
+        /// <summary>
+        /// Represents the user that posted the tweet
+        /// </summary>
+        public UserDetailsModel UserDetails { get; set; }
+    }
+
+    public class UserDetailsModel
+    {
+        /// <summary>
+        /// Name of user
+        /// </summary>
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Location of the user
+        /// </summary>
+        public string Location { get; set; }
+
+
     }
 }

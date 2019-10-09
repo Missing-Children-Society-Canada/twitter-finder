@@ -31,7 +31,8 @@ namespace MCSC
                 TweetUrl = luisInput.TweetUrl,
                 TwitterProfileUrl = luisInput.TwitterProfileUrl,
                 Summary = luisInput.Summary,
-                ShortSummary = luisInput.ShortSummary
+                ShortSummary = luisInput.ShortSummary,
+                UserLocation = luisInput.UserLocation
             };
 
             string shortSummary = luisInput.ShortSummary;

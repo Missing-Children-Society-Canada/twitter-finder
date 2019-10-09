@@ -49,15 +49,15 @@ namespace MCSC
                     StringSanitizer.RemoveHashtags(text)));
             }
 
-            var result = new LuisInput
+            return new LuisInput
             {
                 SourceUrl = sourceUrl,
                 TwitterProfileUrl = $"https://twitter.com/{tweet.TweetedBy}",
                 TweetUrl = $"https://twitter.com/{tweet.TweetedBy}/status/{tweet.TweetId}",
+                UserLocation = tweet.UserDetails?.Location,
                 ShortSummary = shortSummary,
                 Summary = summary
             };
-            return result; 
         }
 
         private static async Task<string> ExpandUrlAsync(string url, int depth = 0)

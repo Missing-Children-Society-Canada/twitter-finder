@@ -14,15 +14,35 @@ namespace MCSC
         public string Height { get; set; }
         public string Weight { get; set; }
         public int Found { get; set; }
-        // Link that we scraped (could be null if there was nothing to scrape)
+        
+        /// <summary>
+        ///  Link that we scraped (could be null if there was nothing to scrape)
+        /// </summary>
         public string SourceUrl { get; set; }
-        // Full scraped summary
+
+        /// <summary>
+        ///  Full scraped summary
+        /// </summary>
         public string Summary { get; set; }
-        // Link of the original tweet
+
+        /// <summary>
+        /// Link of the original tweet
+        /// </summary>
         public string TweetUrl { get; set; }
-        // Link of the Twitter profile that tweeted the tweet
+
+        /// <summary>
+        /// Link of the Twitter profile that tweeted the tweet
+        /// </summary>
         public string TwitterProfileUrl { get; set; }
-        // Short version of the scraped summary, useful for LUIS processing
+
+        /// <summary>
+        /// Short version of the scraped summary, useful for LUIS processing
+        /// </summary>
         public string ShortSummary { get; set; }
+
+        /// <summary>
+        /// Location of the user that made the tweet
+        /// </summary>
+        public string UserLocation { get; set; }
     }
 }
