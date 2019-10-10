@@ -40,7 +40,7 @@ namespace MCSC
             {
                 string[] sentences = Regex.Split(shortSummary, @"(?<=[\.!\?])\s+");
                 List<LuisV2Entity> allEntities = new List<LuisV2Entity>();
-                foreach (string batch in BatchSentences(sentences, 500))
+                foreach (string batch in BatchSentences(sentences, 500).Take(3))
                 {
                     logger.LogInformation($"Sending LUIS query \"{batch}\".");
                     var luisResult = await GetLuisResult(batch, logger);
