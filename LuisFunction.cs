@@ -85,11 +85,11 @@ namespace MCSC
                     while (j < sentences.Length)
                     {
                         var nextSentence = sentences[j];
-                        if (currentBatch.Length + nextSentence.Length > maxLen)
+                        if (currentBatch.Length + nextSentence.Length + 1 > maxLen)
                         {
                             break;
                         }
-                        currentBatch += nextSentence;
+                        currentBatch += " " + nextSentence;
                         index++;
                         j++;
                     }
