@@ -16,7 +16,6 @@ local.settings.json
 .vs/
 
 # Visual Studio Code 
-.vscode/
 
 # Solution specific ignores
 *.json

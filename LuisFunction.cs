@@ -30,8 +30,8 @@ namespace MCSC
                 SourceUrl = luisInput.SourceUrl,
                 TweetUrl = luisInput.TweetUrl,
                 TwitterProfileUrl = luisInput.TwitterProfileUrl,
-                Summary = luisInput.Summary,
-                ShortSummary = luisInput.ShortSummary,
+                Summary = luisInput.Summary ?? "",
+                ShortSummary = luisInput.ShortSummary ?? "",
                 UserLocation = luisInput.UserLocation
             };
 
