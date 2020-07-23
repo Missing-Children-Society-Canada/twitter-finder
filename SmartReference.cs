@@ -28,6 +28,11 @@ namespace MCSC
                 };
                 var client = new HttpClient(handler);
 
+				// setting the default user agent
+				if (client.DefaultRequestHeaders.UserAgent.Count == 0)  {                     
+					client.DefaultRequestHeaders.UserAgent.ParseAdd("Azure Function");
+				}
+
                 var httpResponseMessage = await client.GetAsync(_uri);
                 httpResponseMessage.EnsureSuccessStatusCode();
 
