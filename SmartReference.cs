@@ -49,19 +49,21 @@ namespace MCSC
                 var sr = new SmartReader.Reader(_uri, data);
                 sr.AddCustomOperationStart(SpaceElements);
                 var article = sr.GetArticle();
-                if (!string.IsNullOrEmpty(article.TextContent))
+				var content = !string.IsNullOrEmpty(article.TextContent) ? article.TextContent : article.Excerpt;
+
+                if (!string.IsNullOrEmpty(content))
                 {
                     var shortSummary =
                         StringSanitizer.RemoveDoublespaces(
                         StringSanitizer.RemoveUrls(
-                        StringSanitizer.RemoveHashtags(article.TextContent)))
+                        StringSanitizer.RemoveHashtags(content)))
                         .Trim();
 
                     var summary =
-                        StringSanitizer.RemoveDoublespaces(article.TextContent)
+                        StringSanitizer.RemoveDoublespaces(content)
                         .Trim();
                     return new Incident(shortSummary, summary);
-                }
+				}
             }
             catch (Exception e)
             {
