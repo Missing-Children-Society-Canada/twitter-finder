@@ -60,7 +60,7 @@ namespace MCSC
             };
         }
 
-        private static async Task<string> ExpandUrlAsync(string url, int depth = 0)
+        private static async Task<string> ExpandUrlAsync(ILogger log, string url, int depth = 0)
         {
             using (var handler = new HttpClientHandler())
             {
@@ -72,6 +72,8 @@ namespace MCSC
                     Method = HttpMethod.Head
                 };
                 
+				log.LogInformation($"URL Expansion ({depth}): {url}");
+
                 using (var client = new HttpClient(handler))
                 {
                     var response = await client.SendAsync(request);
@@ -91,7 +93,7 @@ namespace MCSC
                         {
                             redirectUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority) + redirectUri);
                         }
-                        return await ExpandUrlAsync(redirectUri.ToString(), depth);
+                        return await ExpandUrlAsync(log, redirectUri.ToString(), depth);
                     }
 
                     if (!response.IsSuccessStatusCode)
@@ -115,7 +117,7 @@ namespace MCSC
                 string expandedUrl;
                 try
                 {
-                    expandedUrl = await ExpandUrlAsync(link);
+                    expandedUrl = await ExpandUrlAsync(log, link);
                 }
                 catch (Exception e)
                 {
