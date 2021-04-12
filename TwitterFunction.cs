@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
@@ -29,7 +30,7 @@ namespace MCSC
             try
             {
                 tweets = FilterMissingTweets(tweets);
-                log.LogInformation($"Number of tweets with the 'missing' word: {tweets.Count}");
+                log.LogInformation($"Number of tweets matching the keywords: {tweets.Count}");
                 if (tweets.Count == 0)
                 {
                     return;
@@ -91,12 +92,13 @@ namespace MCSC
         private static List<TweetModel> FilterMissingTweets(IEnumerable<TweetModel> tweets)
         {
             var filteredTweets = new List<TweetModel>();
+            var keywordsList = Environment.GetEnvironmentVariable("TweetKeywords", EnvironmentVariableTarget.Process);
+            var keywords = keywordsList.Split(",");
+
             foreach(var tweet in tweets)
             {
-                if (tweet.TweetText.Contains("missing", StringComparison.InvariantCultureIgnoreCase) ||
-                    tweet.TweetText.Contains("disparu", StringComparison.InvariantCultureIgnoreCase))
-                {
-                        filteredTweets.Add(tweet);
+                if (keywords.Any(s => tweet.TweetText.Contains(s, StringComparison.InvariantCultureIgnoreCase))) {
+                    filteredTweets.Add(tweet);
                 }
             }
             return filteredTweets;

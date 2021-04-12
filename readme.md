@@ -31,8 +31,11 @@ To run this project on your local machine you will need to create a local.settin
     "BlobStorageBlobName": "tweets.json",
     "LUISappID": [APP_ID_FROM_LUIS_PORTAL],
     "LUISsubscriptionKey": [SUBSCRIPTION_KEY_FROM_LUIS_PORTAL],
-    "LUISendpoint": "https://wxyz.api.cognitive.microsoft.com/luis/v2.0/apps/"
+    "LUISendpoint": "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/",
+    "TweetKeywords": "missing,disparu,disparition,found,retrouvee,child to locate,teenagers located,youth located,child located,teen located,amber alert,requesting assistance in locating,assistance to locate,female youth,male youth"
   },
   "ConnectionStrings": {}
 }
 ```
+
+You will also need to set up Azure Storage Emulator (or Azurite) and you can use Postman to trigger the Twitter function.
