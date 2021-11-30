@@ -79,6 +79,11 @@ namespace MCSC
                 
                 if (newTweetsCount > 0)
                 {
+                    // Before we upload the processed tweets, let's trim down some old data - anything older than a year
+                    int removedTweets = tweetsFromStorage.RemoveAll(w => w.CreatedAtIso < DateTime.Now.AddYears(-1));
+
+                    log.LogInformation($"Removed {removedTweets} old tweet(s) from the processed tweets.json file.");
+
                     await blobReference.UploadTextAsync(JsonConvert.SerializeObject(tweetsFromStorage));
                 }
             }
