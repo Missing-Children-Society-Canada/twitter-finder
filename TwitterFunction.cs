@@ -25,7 +25,8 @@ namespace MCSC
             ILogger log)
         {
             var requestBody = new StreamReader(req.Body).ReadToEnd();
-            var tweets =  JsonConvert.DeserializeObject<List<TweetModel>>(requestBody);
+            var container =  JsonConvert.DeserializeObject<MCSC.V2.ContainerModel>(requestBody);
+            var tweets = container.ConvertToArchived();
 
             try
             {
