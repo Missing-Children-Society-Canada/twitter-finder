@@ -13,6 +13,11 @@ namespace MCSC.V2
         {
             List<MCSC.TweetModel> tweets = new List<MCSC.TweetModel>();
 
+            if (Data == null)
+            {
+                return tweets;
+            }
+
             foreach (var tweet in Data)
             {
                 // Get the user for the tweet
