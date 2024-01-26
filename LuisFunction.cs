@@ -16,9 +16,9 @@ namespace MCSC
     public static class LuisFunction
     {
         [StorageAccount("BlobStorageConnectionString")]
-        [return: Queue("luis")]
+        [return: Queue("%QueueName_LUISOutput%")]
         [FunctionName("LuisFunction")]
-        public static async Task<string> Run([QueueTrigger("scrape")]string json, 
+        public static async Task<string> Run([QueueTrigger("%QueueName_ScrapeOutput%")]string json, 
             ILogger logger)
         {
             logger.LogInformation($"LuisFunction invoked:\n{json}");

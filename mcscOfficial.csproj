@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
-    <AzureFunctionsVersion>v2</AzureFunctionsVersion>
+    <TargetFramework>net6.0</TargetFramework>
+    <AzureFunctionsVersion>v4</AzureFunctionsVersion>
     <RootNamespace>MCSC</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Chronic.Core" Version="0.3.2" />
-    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.29" />
-    <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.Storage" Version="3.0.7" />
-    <PackageReference Include="SmartReader" Version="0.6.2" />
+    <PackageReference Include="Chronic.Core" Version="0.4.0" />
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.2.0" />
+    <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.Storage" Version="5.2.2" />
+    <PackageReference Include="SmartReader" Version="0.9.1" />
     <PackageReference Include="System.Linq" Version="4.3.0" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.8.9" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.57" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">

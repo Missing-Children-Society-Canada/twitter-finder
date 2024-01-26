@@ -11,9 +11,9 @@ namespace MCSC
     public static class ScrapeFunction
     {
         [StorageAccount("BlobStorageConnectionString")]
-        [return: Queue("scrape")]
+        [return: Queue("%QueueName_ScrapeOutput%")]
         [FunctionName("ScrapeFunction")]
-        public static async Task<LuisInput> Run([QueueTrigger("twitter")]string json, ILogger log)
+        public static async Task<LuisInput> Run([QueueTrigger("%QueueName_TwitterOutput%")]string json, ILogger log)
         {
             log.LogInformation($"Scrape function invoked:\n{json}");
 

@@ -17,6 +17,7 @@ local.settings.json
 
 # Visual Studio Code 
 
-# Solution specific ignores
-*.json
-*.http
+# Azurite storage emulator
+__blobstorage__/
+__queuestorage__/
+__azurite*

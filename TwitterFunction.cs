@@ -21,7 +21,7 @@ namespace MCSC
         [FunctionName("TwitterFunction")]
         public static async Task Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
-            [Queue("twitter")] ICollector<TweetModel> queueCollector,
+            [Queue("%QueueName_TwitterOutput%")] ICollector<TweetModel> queueCollector,
             ILogger log)
         {
             var requestBody = new StreamReader(req.Body).ReadToEnd();
